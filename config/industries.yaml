@@ -1,0 +1,31 @@
+industries:
+  - id: isic_3510
+    scheme: ISIC-derived
+    code: "3510"
+    name: 电力生产、输配与储能
+    keywords: [电网, 电力, 储能, 发电, electricity, grid, storage]
+  - id: isic_2812
+    scheme: ISIC-derived
+    code: "2812"
+    name: 风电与清洁能源设备
+    keywords: [风电, 风机, 叶片, 海上风电, 清洁能源, wind, turbine, renewable]
+  - id: isic_6201
+    scheme: ISIC-derived
+    code: "6201"
+    name: 软件与云服务
+    keywords: [云服务, 云计算, 软件, 数据中心, cloud, software, data center]
+  - id: isic_6209
+    scheme: ISIC-derived
+    code: "6209"
+    name: 网络安全与合规服务
+    keywords: [网络安全, 数据安全, 合规, 审查, cybersecurity, compliance, privacy]
+  - id: isic_6419
+    scheme: ISIC-derived
+    code: "6419"
+    name: 银行与金融服务
+    keywords: [银行, 利率, 货币政策, 融资, bank, interest rate, monetary policy, financing]
+  - id: isic_2100
+    scheme: ISIC-derived
+    code: "2100"
+    name: 制药与生命科学
+    keywords: [药品, 疫苗, 临床, 公共卫生, pharmaceutical, vaccine, clinical, health]

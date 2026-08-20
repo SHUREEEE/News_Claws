@@ -1,0 +1,25 @@
+entities:
+  - id: demo_seawind_equipment
+    canonical_name: 海风设备股份（演示）
+    country: CN
+    industry_id: isic_2812
+    identifiers: {ticker: DEMO-WIND}
+    aliases: [海风设备, DEMO-WIND]
+  - id: demo_green_grid
+    canonical_name: 绿网科技（演示）
+    country: CN
+    industry_id: isic_3510
+    identifiers: {ticker: DEMO-GRID}
+    aliases: [绿网科技, DEMO-GRID]
+  - id: demo_cloudworks
+    canonical_name: 云工场科技（演示）
+    country: CN
+    industry_id: isic_6201
+    identifiers: {ticker: DEMO-CLOUD}
+    aliases: [云工场, 云工场科技, DEMO-CLOUD]
+  - id: demo_cyberguard
+    canonical_name: 安盾合规（演示）
+    country: CN
+    industry_id: isic_6209
+    identifiers: {ticker: DEMO-CYBER}
+    aliases: [安盾合规, 安盾, DEMO-CYBER]

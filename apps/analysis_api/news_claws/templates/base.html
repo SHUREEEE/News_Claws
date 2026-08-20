@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}News Claws{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/app.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="News Claws 事件看板">
+      <span class="brand-mark" aria-hidden="true">NC</span>
+      <span>News Claws</span>
+    </a>
+    <nav aria-label="主导航">
+      <a href="/" {% if page == 'events' %}aria-current="page"{% endif %}>事件</a>
+      <a href="/sources" {% if page == 'sources' %}aria-current="page"{% endif %}>来源</a>
+      <a href="/subscriptions" {% if page == 'subscriptions' %}aria-current="page"{% endif %}>订阅</a>
+      <a href="/system" {% if page == 'system' %}aria-current="page"{% endif %}>系统</a>
+    </nav>
+    <button class="quiet-button" type="button" data-token-toggle>管理令牌</button>
+  </header>
+
+  <form class="token-panel" data-token-panel hidden>
+    <label for="admin-token">管理令牌</label>
+    <input id="admin-token" type="password" autocomplete="off" placeholder="ADMIN_TOKEN">
+    <button type="button" data-token-save>保存</button>
+  </form>
+
+  <main class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+  <div class="toast" role="status" aria-live="polite" data-toast hidden></div>
+  <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

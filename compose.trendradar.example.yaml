@@ -1,0 +1,24 @@
+# Use together with compose.yaml only after pinning reviewed upstream image versions:
+# docker compose -f compose.yaml -f compose.trendradar.example.yaml up
+services:
+  trendradar:
+    image: ${TRENDRADAR_IMAGE:?Set a reviewed, pinned TrendRadar image tag or digest}
+    volumes:
+      - trendradar-data:/app/output
+    restart: unless-stopped
+
+  trendradar-mcp:
+    image: ${TRENDRADAR_MCP_IMAGE:?Set a reviewed, pinned trendradar-mcp image tag or digest}
+    volumes:
+      - trendradar-data:/app/output:ro
+    restart: unless-stopped
+
+  analysis-api:
+    depends_on:
+      - trendradar-mcp
+    environment:
+      TRENDRADAR_ENABLED: "true"
+      TRENDRADAR_MCP_URL: http://trendradar-mcp:3333/mcp
+
+volumes:
+  trendradar-data:

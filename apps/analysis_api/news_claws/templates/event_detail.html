@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }} · News Claws{% endblock %}
+{% block content %}
+{% set verification_labels = {
+  'primary_source_confirmed': '原始材料确认',
+  'multi_source_corroborated': '多源印证',
+  'single_source_reported': '单一来源报道',
+  'disputed': '存在争议',
+  'withdrawn_or_disproved': '已撤回 / 已证伪'
+} %}
+{% set confidence_labels = {'high': '高', 'medium': '中', 'low': '低'} %}
+{% set direction_labels = {
+  'positive': '正面',
+  'negative': '负面',
+  'mixed': '多空并存',
+  'neutral': '中性',
+  'unknown': '未知'
+} %}
+{% set strength_labels = {'high': '高', 'medium': '中', 'low': '低'} %}
+{% set role_labels = {
+  'subject': '事件主体',
+  'regulatory_target': '监管对象',
+  'supplier': '供应商'
+} %}
+{% set stance_labels = {
+  'supports': '支持',
+  'conflicts': '冲突',
+  'withdrawn': '已撤回',
+  'disproves': '证伪'
+} %}
+<nav class="breadcrumb" aria-label="面包屑"><a href="/">事件</a><span>/</span><span>详情</span></nav>
+<section class="event-hero">
+  <div>
+    <p class="eyebrow">{% if event.is_demo %}演示事件{% else %}事件分析{% endif %}</p>
+    <h1>{{ event.title }}</h1>
+    <p class="event-meta">{{ articles|length }} 篇文章 · {{ independent_chain_count }} 条独立来源链 · 更新于 {{ event.last_seen.strftime('%Y-%m-%d %H:%M') }} UTC</p>
+  </div>
+  <div class="hero-actions">
+    {% if report %}<a class="quiet-button" href="/api/v1/reports/{{ report.id }}?format=markdown" data-protected-link>Markdown</a>{% endif %}
+    <button class="primary-button" type="button" data-reanalyze="{{ event.id }}">重新分析</button>
+  </div>
+</section>
+
+{% if event.is_demo %}
+<p class="demo-banner">本页为合成演示数据，不代表真实机构、公司、政策或投资判断。</p>
+{% endif %}
+
+<section class="verification-band">
+  <div>
+    <span>核实状态</span>
+    <strong>{{ verification_labels.get(verification.status, verification.status) if verification else '待核实' }}</strong>
+  </div>
+  <div>
+    <span>置信度</span>
+    <strong>{{ confidence_labels.get(verification.confidence, verification.confidence) if verification else '低' }}</strong>
+  </div>
+  <p>{{ verification.rationale if verification else '等待证据分析。' }}</p>
+</section>
+
+<div class="detail-tabs" role="tablist" aria-label="事件详情视图">
+  <button role="tab" aria-selected="true" data-tab="analysis">影响分析</button>
+  <button role="tab" aria-selected="false" data-tab="evidence">主张与证据</button>
+  <button role="tab" aria-selected="false" data-tab="sources">来源与版本</button>
+  <button role="tab" aria-selected="false" data-tab="feedback">反馈</button>
+</div>
+
+<section data-panel="analysis">
+  <div class="section-heading"><h2>行业影响</h2><span>最多 3 个</span></div>
+  <div class="impact-list">
+    {% for item in industries %}
+    <article class="impact-row">
+      <div><h3>{{ item.name }}</h3><p>{{ item.explanation }}</p></div>
+      <dl>
+        <div><dt>关联度</dt><dd>{{ item.relevance }}</dd></div>
+        <div><dt>方向</dt><dd class="direction-{{ item.direction }}">{{ direction_labels.get(item.direction, item.direction) }}</dd></div>
+        <div><dt>强度</dt><dd>{{ strength_labels.get(item.strength, item.strength) }}</dd></div>
+        <div><dt>置信度</dt><dd>{{ confidence_labels.get(item.confidence, item.confidence) }}</dd></div>
+      </dl>
+    </article>
+    {% else %}<p class="empty-inline">没有足够证据形成行业影响结论。</p>{% endfor %}
+  </div>
+
+  <div class="section-heading"><h2>公司影响</h2><span>最多 5 家</span></div>
+  <div class="impact-list">
+    {% for item in companies %}
+    <article class="impact-row">
+      <div><h3>{{ item.name }}</h3><p>{{ item.explanation }}</p></div>
+      <dl>
+        <div><dt>角色</dt><dd>{{ role_labels.get(item.role, item.role or '未标注') }}</dd></div>
+        <div><dt>关联度</dt><dd>{{ item.relevance }}</dd></div>
+        <div><dt>方向</dt><dd class="direction-{{ item.direction }}">{{ direction_labels.get(item.direction, item.direction) }}</dd></div>
+        <div><dt>强度</dt><dd>{{ strength_labels.get(item.strength, item.strength) }}</dd></div>
+      </dl>
+    </article>
+    {% else %}<p class="empty-inline">没有足够证据形成公司影响结论。</p>{% endfor %}
+  </div>
+</section>
+
+<section data-panel="evidence" hidden>
+  <div class="section-heading"><h2>核心主张</h2><span>{{ claims|length }}</span></div>
+  {% for claim in claims %}<blockquote><p>{{ claim.text }}</p><cite>{{ claim.quote }}</cite></blockquote>{% endfor %}
+  <div class="section-heading"><h2>证据</h2><span>{{ evidence|length }}</span></div>
+  <div class="evidence-list">
+  {% for item in evidence %}
+    <article>
+      <header><code>{{ item.id }}</code><b class="stance-{{ item.stance }}">{{ stance_labels.get(item.stance, item.stance) }}</b></header>
+      <p>{{ item.quote }}</p>
+      <small>{{ item.source_tier }} · {{ item.independence_group }}{% if not item.independence_known %} · 独立性未知{% endif %}</small>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section data-panel="sources" hidden>
+  <div class="section-heading"><h2>来源与版本</h2><span>{{ articles|length }} 篇</span></div>
+  <div class="source-article-list">
+  {% for item in articles %}
+    <article>
+      <div><b>{{ item.source_name }}</b><span>{{ item.source_tier }}{% if item.official %} · 官方{% endif %}</span></div>
+      <h3><a href="{{ item.url }}" rel="noopener noreferrer" target="_blank">{{ item.title }}</a></h3>
+      <p>{{ item.summary }}</p>
+      <small>{{ item.independence_group }} · {{ item.version_count }} 个版本</small>
+    </article>
+  {% endfor %}
+  </div>
+</section>
+
+<section data-panel="feedback" hidden>
+  <div class="section-heading"><h2>提交反馈</h2><span>关联当前分析版本</span></div>
+  <form class="feedback-form" data-feedback-form>
+    <input type="hidden" name="target_type" value="event">
+    <input type="hidden" name="target_id" value="{{ event.id }}">
+    <label>判断<select name="verdict"><option value="correct">正确</option><option value="incorrect">错误</option><option value="uncertain">不确定</option></select></label>
+    <label>原因<textarea name="reason" required minlength="3" maxlength="2000"></textarea></label>
+    <label>记录人<input name="actor" value="local-analyst" required></label>
+    <button class="primary-button" type="submit">提交反馈</button>
+  </form>
+</section>
+{% endblock %}

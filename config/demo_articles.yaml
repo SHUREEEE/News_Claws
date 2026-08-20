@@ -1,0 +1,38 @@
+articles:
+  - source_id: demo_clean_energy_official
+    url: https://example.invalid/demo/clean-energy/offshore-wind-plan
+    title: 演示：清洁能源委员会发布海上风电扩容方案
+    summary: 合成演示材料称，委员会发布海上风电扩容方案，并提出未来数季增加电网和储能配套投资。海风设备股份与绿网科技仅为演示实体。
+    body_excerpt: 本条内容是 News Claws 的合成验收数据，不代表真实机构、公司或现实事件。
+    published_at: "2026-08-20T01:10:00Z"
+    language: zh
+  - source_id: demo_business_wire
+    url: https://example.invalid/demo/business-wire/offshore-wind-investment
+    origin_url: https://example.invalid/demo/business-wire/original/offshore-wind-investment
+    title: 演示：海上风电扩容方案带动设备与电网投资
+    summary: 演示财经通讯社报道，拟议方案可能提高风电设备需求，并增加绿网科技的电网建设机会；执行节奏仍取决于后续规则。
+    body_excerpt: 合成演示报道，用于验证多源、行业和公司影响分析。
+    published_at: "2026-08-20T01:35:00Z"
+    language: zh
+  - source_id: demo_market_daily
+    url: https://example.invalid/demo/market-daily/repost-wind-investment
+    origin_url: https://example.invalid/demo/business-wire/original/offshore-wind-investment
+    title: 演示：海上风电扩容将带动设备和电网投资
+    summary: 演示市场日报转载同一通讯社信息，称设备需求和电网投资可能上升。
+    body_excerpt: 这是同稿转载样本，文章数应增加，但独立来源链数不应增加。
+    published_at: "2026-08-20T01:48:00Z"
+    language: zh
+  - source_id: demo_clean_energy_official
+    url: https://example.invalid/demo/clean-energy/cloud-review
+    title: 演示：监管机构要求云服务商强化数据出境审查
+    summary: 合成演示材料称，新的审查要求将提高云服务商的合规成本，同时增加网络安全和合规服务需求。
+    body_excerpt: 云工场科技与安盾合规均为合成演示实体，不代表投资判断。
+    published_at: "2026-08-20T02:20:00Z"
+    language: zh
+  - source_id: demo_business_wire
+    url: https://example.invalid/demo/business-wire/cloud-compliance-cost
+    title: 演示：数据出境审查或增加云服务合规成本
+    summary: 演示报道认为，云工场科技面临短期运营和合规成本压力，而安盾合规可能获得新增服务需求。
+    body_excerpt: 合成演示报道，用于验证情绪与行业公司影响方向可以不同。
+    published_at: "2026-08-20T02:42:00Z"
+    language: zh
