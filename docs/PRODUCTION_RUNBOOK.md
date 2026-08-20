@@ -14,20 +14,24 @@ application replica and SQLite WAL. Do not scale the application service horizon
 - Official, reviewed company exports for each required A-share or Hong Kong exchange.
 - SMTP credentials and a verified sender when email notifications are enabled.
 - A human-labeled benchmark containing at least 200 non-demo events.
+- A GitHub Container Registry credential limited to `read:packages` while the image is private.
 
 ## First Deployment
 
 ~~~bash
 cp .env.production.example .env.production
 docker run --rm caddy:2.10.2-alpine caddy hash-password --plaintext 'replace-this-password'
-# Set NEWS_CLAWS_IMAGE_TAG to: git rev-parse --verify HEAD
+# Set NEWS_CLAWS_IMAGE_TAG to the full SHA shown by the successful container workflow.
 # Put the hash in BASIC_AUTH_HASH inside single quotes: BASIC_AUTH_HASH='$2a$...'
 # Single quotes prevent Compose from expanding the hash's dollar signs.
 # Replace every remaining placeholder.
+export CR_PAT='a-token-limited-to-read-packages'
+echo "$CR_PAT" | docker login ghcr.io -u SHUREEEE --password-stdin
+unset CR_PAT
 python scripts/validate_production_env.py .env.production
 docker compose --env-file .env.production -f compose.prod.yaml config
-docker compose --env-file .env.production -f compose.prod.yaml build --pull
-docker compose --env-file .env.production -f compose.prod.yaml up -d
+docker compose --env-file .env.production -f compose.prod.yaml pull analysis-api
+docker compose --env-file .env.production -f compose.prod.yaml up -d --no-build
 docker compose --env-file .env.production -f compose.prod.yaml ps
 curl --fail --silent --show-error https://YOUR_DOMAIN/health/live
 ~~~
@@ -107,17 +111,19 @@ host is not a disaster-recovery backup.
 
 ## Upgrade
 
-Record the current `NEWS_CLAWS_IMAGE_TAG` and take an off-host backup. Check out the exact revision to deploy, set `NEWS_CLAWS_IMAGE_TAG` to that full or abbreviated Git SHA in `.env.production`, then run:
+Record the current `NEWS_CLAWS_IMAGE_TAG` and take an off-host backup. Set `NEWS_CLAWS_IMAGE_TAG`
+to the full Git SHA published by the successful container workflow, then run:
 
 ~~~bash
 python scripts/validate_production_env.py .env.production
-docker compose --env-file .env.production -f compose.prod.yaml build --pull
-docker compose --env-file .env.production -f compose.prod.yaml up -d
+docker compose --env-file .env.production -f compose.prod.yaml pull analysis-api
+docker compose --env-file .env.production -f compose.prod.yaml up -d --no-build
 docker compose --env-file .env.production -f compose.prod.yaml ps
 curl --fail --silent --show-error https://YOUR_DOMAIN/health/live
 ~~~
 
-The application runs Alembic migrations before becoming ready. The image tag makes the built release addressable for rollback; do not use `latest` or reuse a previous SHA tag.
+The application runs Alembic migrations before becoming ready. The full-SHA image tag makes the
+published release addressable for rollback; use only the full-SHA tag and never reuse one.
 
 ## Rollback
 

@@ -50,6 +50,7 @@ def validate(values: dict[str, str]) -> list[str]:
     required = {
         "APP_ENV",
         "DATABASE_URL",
+        "NEWS_CLAWS_IMAGE",
         "NEWS_CLAWS_IMAGE_TAG",
         "ADMIN_TOKEN",
         "DOMAIN",
@@ -66,9 +67,13 @@ def validate(values: dict[str, str]) -> list[str]:
     if not re.fullmatch(r"sqlite:////data/[A-Za-z0-9._-]+\.db", database_url):
         errors.append("DATABASE_URL must use a SQLite database file under /data")
 
+    image = values.get("NEWS_CLAWS_IMAGE", "")
+    if image != "ghcr.io/shureeee/news_claws":
+        errors.append("NEWS_CLAWS_IMAGE must be ghcr.io/shureeee/news_claws")
+
     image_tag = values.get("NEWS_CLAWS_IMAGE_TAG", "").lower()
-    if image_tag in PLACEHOLDERS or not re.fullmatch(r"[0-9a-f]{7,40}", image_tag):
-        errors.append("NEWS_CLAWS_IMAGE_TAG must be an immutable 7-40 character Git SHA")
+    if image_tag in PLACEHOLDERS or not re.fullmatch(r"[0-9a-f]{40}", image_tag):
+        errors.append("NEWS_CLAWS_IMAGE_TAG must be an immutable full 40-character Git SHA")
 
     domain = values.get("DOMAIN", "").lower()
     if domain in PLACEHOLDERS or not re.fullmatch(

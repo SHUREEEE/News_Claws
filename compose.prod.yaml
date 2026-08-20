@@ -2,10 +2,7 @@ name: news-claws
 
 services:
   analysis-api:
-    image: news-claws-analysis-api:${NEWS_CLAWS_IMAGE_TAG:-local}
-    build:
-      context: .
-      dockerfile: apps/analysis_api/Dockerfile
+    image: "${NEWS_CLAWS_IMAGE:?NEWS_CLAWS_IMAGE is required}:${NEWS_CLAWS_IMAGE_TAG:?NEWS_CLAWS_IMAGE_TAG is required}"
     environment:
       APP_ENV: ${APP_ENV:?APP_ENV is required}
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
