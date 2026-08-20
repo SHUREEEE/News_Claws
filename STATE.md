@@ -3,15 +3,15 @@
 - Release ID: `candidate-ingestion-llm-20260821`
 - Current loop: `L1 project / L2A task`
 - Delivery path: `full`
-- Current phase: `07 Verification / GitHub integration`
+- Current phase: `08 Release / external production gate`
 - Current work package: `WP-8 production release`
-- Task state: `in_progress`
+- Task state: `blocked`
 - Task owner: `Maker (Codex)`
 - Verification owner: `GitHub Actions plus independent local verification`
 - Budget owner: `Tech Lead (user acting as project approver)`
 - Evidence directory: `evidence/dev-local/` plus GitHub PR/Actions records
-- Last evidence: 146 tests passed with warnings as errors and 89.88% domain branch coverage; real Newspaper4k/news-please HTML smoke, dependency audit and isolated Alembic `d542a38f7c10 (head)` upgrade passed; current GitHub CI is pending
-- Next step: push the current candidate, merge only after branch/PR CI and container checks pass, then return to the external production release gate
+- Last evidence: PR #7 merged as `2092bd1761450d2bf6cbb1aba1a1d4429fb9cdbc`; final `master` CI run `32428038226` passed; GHCR run `32428170485` published and verified the SHA-tagged image at digest `sha256:f77477f2adb950527a10ea138d298664d826d1713c5973c6353079755cd2bd5a`
+- Next step: supply and approve the real production host, domain, credentials, official datasets and human validation evidence, then execute the protected production deployment and public acceptance checks
 
 ## Authorization Envelope
 
@@ -70,3 +70,4 @@
 | 2026-08-21 | blocked | in_progress | GitHub credentials and repository authorization became available; the candidate was published, released and given a protected deployment workflow. | Releases `v0.1.0`/`v0.1.1`, PRs #1-#5, GitHub Actions |
 | 2026-08-21 | in_progress | blocked | Repository integration passed, but no real host/domain/credentials or required human and scale evidence exists; production execution was not fabricated. | `docs/RELEASE_ACCEPTANCE_MATRIX.md`, `docs/PRODUCTION_RUNBOOK.md`, GitHub `production` environment |
 | 2026-08-21 | blocked | in_progress | User authorized closing the remaining extraction and strict-LLM gaps before merge/deployment; local Checker evidence passed and GitHub integration is pending. | `evidence/dev-local/ingestion-llm-closeout-20260821.md` |
+| 2026-08-21 | in_progress | blocked | PR #7 merged after branch/PR CI; final `master` CI and immutable SHA-tagged GHCR publication passed. Public production remains gated by external infrastructure, credentials and human validation. | PR #7; Actions runs `32428038226` and `32428170485`; `evidence/dev-local/ingestion-llm-closeout-20260821.md` |

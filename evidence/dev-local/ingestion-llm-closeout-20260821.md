@@ -21,7 +21,7 @@ Evidence class: verified local fact unless explicitly marked pending or gated.
 - Real-library local HTML smoke extracted 157 body characters with both libraries. Newspaper4k emitted only its expected optional-NLP warning; the application does not call those NLP features.
 - `pip-audit` reported no known vulnerabilities. The unpublished local `news-claws` distribution was skipped as expected.
 - An isolated empty SQLite database upgraded through every migration to `d542a38f7c10 (head)`.
-- Local Docker CLI/Engine is unavailable. Docker build and non-root mount checks remain GitHub Actions evidence and must pass on this candidate before merge.
+- Local Docker CLI/Engine is unavailable. GitHub Actions supplied the Docker build, push and immutable digest verification evidence after merge.
 
 ## Final Local Gate
 
@@ -46,12 +46,21 @@ git diff --check: passed (line-ending notices only)
 | NC-LLM-PROMPT-001 | Industry catalog growth could exceed the 40k message contract. | Candidate selection and per-field bounds. | 1 | A 100-extra-industry fixture remains bounded and succeeds. |
 | NC-MUTATION-001 | Merge/split could commit and then return 502 on model failure. | Post-commit analysis result contract. | 1 | APIs return committed event plus `succeeded`, `dead` or `retry_wait`. |
 | NC-ROBOTS-001 | Allow-listed website discovery did not enforce documented robots policy. | Safe HTTP adapter and website discovery tests. | 1 | Disallowed roots/candidates are never fetched; 404 behavior is explicit. |
+| NC-ORIGIN-001 | Same-site discovery compared host and port but could accept an HTTPS-to-HTTP downgrade. | Require identical scheme, host and port; add a downgrade regression fixture. | 1 | Six discovery/robots tests and the 146-test full suite pass. |
 
 No root cause reached the Loop three-return stop condition.
 
+## GitHub Release Evidence
+
+- PR [#7](https://github.com/SHUREEEE/News_Claws/pull/7) merged into `master` at `2092bd1761450d2bf6cbb1aba1a1d4429fb9cdbc` after all branch and pull-request checks passed.
+- Final `master` CI run [32428038226](https://github.com/SHUREEEE/News_Claws/actions/runs/32428038226) completed successfully for the merge SHA.
+- Container publication run [32428170485](https://github.com/SHUREEEE/News_Claws/actions/runs/32428170485) completed successfully, including `Verify immutable image digest`.
+- Published image: `ghcr.io/shureeee/news_claws:2092bd1761450d2bf6cbb1aba1a1d4429fb9cdbc`.
+- Verified OCI digest: `sha256:f77477f2adb950527a10ea138d298664d826d1713c5973c6353079755cd2bd5a`.
+
 ## Remaining Release Gates
 
-- Pending GitHub evidence: branch CI, draft PR CI, merge, final `master` CI and immutable container publication for this candidate.
+- Passed GitHub evidence: branch CI, draft PR CI, merge, final `master` CI and immutable container publication for this candidate.
 - Gated external inputs: real Linux/Docker host, SSH values, domain/DNS/TLS, complete production environment/secrets, real monitored contact email, optional SMTP, reviewed official exchange/company files and source compliance approvals.
 - Gated validation: fixed 200-event human benchmark, 50k performance run, two-week availability trial, timed recovery drill, accessibility review and product/technical/data-AI/compliance sign-off.
 - No production credentials, benchmark labels, contact identities or public endpoint results were fabricated.
