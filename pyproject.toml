@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "news-claws"
+version = "0.1.0"
+description = "Evidence-first news collection and impact analysis MVP"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "alembic>=1.14,<2",
+  "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
+  "jinja2>=3.1,<4",
+  "pydantic>=2.10,<3",
+  "python-multipart>=0.0.18,<1",
+  "PyYAML>=6.0,<7",
+  "sqlalchemy>=2.0,<3",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+extract = ["newspaper4k>=0.9,<1"]
+dev = [
+  "httpx2>=2.12,<3",
+  "pip-audit>=2.10,<3",
+  "pytest>=9.0.3,<10",
+  "pytest-cov>=6,<7",
+  "ruff>=0.9,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["apps/analysis_api"]
+
+[tool.setuptools.package-data]
+news_claws = ["templates/*.html", "static/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --disable-warnings"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]

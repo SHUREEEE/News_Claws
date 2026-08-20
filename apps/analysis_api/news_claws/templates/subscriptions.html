@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}订阅管理 · News Claws{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <p class="eyebrow">通知策略</p>
+    <h1>订阅管理</h1>
+  </div>
+  <button class="quiet-button" type="button" data-dispatch-notifications>发送待处理通知</button>
+</section>
+
+<div class="subscription-layout">
+  <form class="manage-form" data-subscription-form>
+    <div class="section-heading">
+      <h2>新建邮件订阅</h2>
+    </div>
+    <label>
+      收件邮箱
+      <input name="email" type="email" autocomplete="email" required maxlength="320">
+    </label>
+    <div class="form-row">
+      <label>
+        频率
+        <select name="frequency">
+          <option value="daily">每日摘要</option>
+          <option value="immediate">即时通知</option>
+        </select>
+      </label>
+      <label>
+        最低关联度
+        <input name="min_relevance" type="number" min="0" max="100" value="70" required>
+      </label>
+      <label>
+        摘要时间（UTC）
+        <input name="digest_hour_utc" type="number" min="0" max="23" value="0" required>
+      </label>
+    </div>
+
+    <fieldset>
+      <legend>公司关注清单</legend>
+      <label class="search-field">
+        <span class="sr-only">搜索公司</span>
+        <input type="search" placeholder="输入至少两个字符搜索公司" data-company-search>
+      </label>
+      <div class="picker-results" data-company-results hidden></div>
+      <div class="selected-targets" data-selected-companies></div>
+    </fieldset>
+
+    <label>
+      行业关注清单
+      <select name="industry_ids" multiple size="6">
+        {% for industry in industries %}
+        <option value="{{ industry.id }}">{{ industry.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <p class="field-note">公司和行业均不选择时，将按关联度阈值接收所有事件。</p>
+    <button class="primary-button" type="submit">创建订阅</button>
+  </form>
+
+  <section aria-labelledby="subscription-list-title">
+    <div class="section-heading">
+      <h2 id="subscription-list-title">当前订阅</h2>
+      <span data-subscription-count></span>
+    </div>
+    <div class="subscription-list" data-subscription-list>
+      <p class="empty-inline">设置管理令牌后加载订阅。</p>
+    </div>
+  </section>
+</div>
+{% endblock %}

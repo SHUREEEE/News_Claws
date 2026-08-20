@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}系统状态 · News Claws{% endblock %}
+{% block content %}
+<section class="page-heading"><div><p class="eyebrow">运行状态</p><h1>系统</h1></div></section>
+<section class="metric-strip" aria-label="系统指标">
+  <div><strong>{{ summary.healthy_sources }}/{{ summary.sources }}</strong><span>健康来源</span></div>
+  <div><strong>{{ summary.dead_jobs }}</strong><span>Dead 任务</span></div>
+  <div><strong>{{ summary.database }}</strong><span>数据库</span></div>
+  <div><strong>{{ summary.search_provider }}</strong><span>搜索</span></div>
+</section>
+<section class="system-grid">
+  <div>
+    <div class="section-heading"><h2>运行配置</h2></div>
+    <dl class="config-list">
+      {% for key, value in summary.items() %}<div><dt>{{ key }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+    </dl>
+  </div>
+  <div>
+    <div class="section-heading"><h2>最近任务</h2><span>{{ jobs|length }}</span></div>
+    <div class="job-list">
+      {% for job in jobs %}<article><b>{{ job.job_type }}</b><code>{{ job.status }}</code><small>{{ job.updated_at }}</small></article>
+      {% else %}<p class="empty-inline">暂无持久任务记录。</p>{% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

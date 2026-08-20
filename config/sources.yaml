@@ -1,0 +1,712 @@
+sources:
+  - id: demo_clean_energy_official
+    name: 演示清洁能源委员会
+    owner: News Claws Demo Dataset
+    region: CN
+    language: zh
+    source_type: government
+    tier: S1
+    official: true
+    method: fixture
+    entry_url: https://example.invalid/demo/clean-energy
+    schedule: "0 0 * * *"
+    timezone: Asia/Shanghai
+    content_policy: metadata_and_excerpt
+    compliance_notes: 仅用于本地演示的合成来源，不代表真实机构或事实。
+    contact_owner: demo-owner
+    enabled: true
+    is_demo: true
+  - id: demo_business_wire
+    name: 演示财经通讯社
+    owner: News Claws Demo Dataset
+    region: CN
+    language: zh
+    source_type: media
+    tier: S2
+    official: false
+    method: fixture
+    entry_url: https://example.invalid/demo/business-wire
+    schedule: "0 0 * * *"
+    timezone: Asia/Shanghai
+    content_policy: metadata_and_excerpt
+    compliance_notes: 仅用于本地演示的合成来源。
+    contact_owner: demo-owner
+    enabled: true
+    is_demo: true
+  - id: demo_market_daily
+    name: 演示市场日报
+    owner: News Claws Demo Dataset
+    region: CN
+    language: zh
+    source_type: media
+    tier: S2
+    official: false
+    method: fixture
+    entry_url: https://example.invalid/demo/market-daily
+    schedule: "0 0 * * *"
+    timezone: Asia/Shanghai
+    content_policy: metadata_and_excerpt
+    compliance_notes: 仅用于本地演示；转载关系在 fixture 中显式保留。
+    contact_owner: demo-owner
+    enabled: true
+    is_demo: true
+  - id: us_sec_press
+    name: U.S. SEC Press Releases
+    owner: U.S. Securities and Exchange Commission
+    region: US
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.sec.gov/news/pressreleases.rss
+    schedule: "*/15 * * * *"
+    timezone: America/New_York
+    content_policy: metadata_and_excerpt
+    compliance_notes: Public agency RSS. Respect SEC automated access policy and rate limits.
+    contact_owner: source-admin
+    enabled: true
+  - id: us_federal_reserve
+    name: Federal Reserve Press Releases
+    owner: Board of Governors of the Federal Reserve System
+    region: US
+    language: en
+    source_type: central_bank
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.federalreserve.gov/feeds/press_all.xml
+    schedule: "*/15 * * * *"
+    timezone: America/New_York
+    content_policy: metadata_and_excerpt
+    compliance_notes: Public agency RSS; store metadata and minimum evidence excerpts.
+    contact_owner: source-admin
+    enabled: true
+  - id: ecb_press
+    name: European Central Bank Press Releases
+    owner: European Central Bank
+    region: EU
+    language: en
+    source_type: central_bank
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.ecb.europa.eu/rss/press.html
+    schedule: "*/15 * * * *"
+    timezone: Europe/Frankfurt
+    content_policy: metadata_and_excerpt
+    compliance_notes: Public RSS; review ECB reuse terms before external distribution.
+    contact_owner: source-admin
+    enabled: true
+  - id: uk_gov_news
+    name: GOV.UK News and Communications
+    owner: UK Government
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom
+    schedule: "*/15 * * * *"
+    timezone: Europe/London
+    content_policy: metadata_and_excerpt
+    compliance_notes: Public Atom feed; retain Crown copyright attribution where applicable.
+    contact_owner: source-admin
+    enabled: false
+  - id: who_news
+    name: WHO News
+    owner: World Health Organization
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.who.int/rss-feeds/news-english.xml
+    schedule: "*/15 * * * *"
+    timezone: Europe/Zurich
+    content_policy: metadata_and_excerpt
+    compliance_notes: Public RSS; WHO names and marks remain subject to WHO policies.
+    contact_owner: source-admin
+    enabled: true
+  - id: un_news
+    name: UN News
+    owner: United Nations
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S2
+    official: true
+    method: rss
+    entry_url: https://news.un.org/feed/subscribe/en/news/all/rss.xml
+    schedule: "*/15 * * * *"
+    timezone: America/New_York
+    content_policy: metadata_and_excerpt
+    compliance_notes: Public news feed; verify reuse policy before redistribution.
+    contact_owner: source-admin
+    enabled: true
+  - id: us_nist_news
+    name: NIST News
+    owner: U.S. National Institute of Standards and Technology
+    region: US
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.nist.gov/news-events/news/rss.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official public feed; store metadata and excerpts and review reuse terms before external distribution.
+  - id: us_nasa_releases
+    name: NASA News Releases
+    owner: U.S. National Aeronautics and Space Administration
+    region: US
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.nasa.gov/news-release/feed/
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official public feed; retain attribution and review NASA media-use policies.
+  - id: us_ftc_press
+    name: FTC Press Releases
+    owner: U.S. Federal Trade Commission
+    region: US
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.ftc.gov/feeds/press-release.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official public regulator feed; store metadata and minimum evidence excerpts.
+  - id: us_eia_energy
+    name: EIA Today in Energy
+    owner: U.S. Energy Information Administration
+    region: US
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.eia.gov/rss/todayinenergy.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official public statistical-agency feed; preserve source attribution.
+  - id: eu_eba_news
+    name: European Banking Authority News
+    owner: European Banking Authority
+    region: EU
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.eba.europa.eu/rss.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official EU authority feed; review EU reuse terms before external distribution.
+  - id: eu_commission_press
+    name: European Commission Press Corner
+    owner: European Commission
+    region: EU
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://ec.europa.eu/commission/presscorner/api/rss?language=en
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official European Commission feed; retain attribution and source links.
+  - id: uk_boe_news
+    name: Bank of England News
+    owner: Bank of England
+    region: UK
+    language: en
+    source_type: central_bank
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.bankofengland.co.uk/rss/news
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official central-bank feed; review Bank of England reuse terms.
+  - id: uk_cma_news
+    name: Competition and Markets Authority News
+    owner: UK Competition and Markets Authority
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=competition-and-markets-authority
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_hm_treasury_news
+    name: HM Treasury News
+    owner: HM Treasury
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=hm-treasury
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_business_trade_news
+    name: Department for Business and Trade News
+    owner: UK Department for Business and Trade
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-business-and-trade
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_energy_security_news
+    name: Department for Energy Security and Net Zero News
+    owner: UK Department for Energy Security and Net Zero
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-energy-security-and-net-zero
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_science_technology_news
+    name: Department for Science Innovation and Technology News
+    owner: UK Department for Science Innovation and Technology
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-science-innovation-and-technology
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_mhra_news
+    name: MHRA News
+    owner: UK Medicines and Healthcare products Regulatory Agency
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=medicines-and-healthcare-products-regulatory-agency
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_environment_agency_news
+    name: Environment Agency News
+    owner: UK Environment Agency
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=environment-agency
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_ons_news
+    name: Office for National Statistics News
+    owner: UK Office for National Statistics
+    region: UK
+    language: en
+    source_type: statistics
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=office-for-national-statistics
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_health_news
+    name: Department of Health and Social Care News
+    owner: UK Department of Health and Social Care
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-of-health-and-social-care
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_fcdo_news
+    name: Foreign Commonwealth and Development Office News
+    owner: UK Foreign Commonwealth and Development Office
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=foreign-commonwealth-development-office
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_transport_news
+    name: Department for Transport News
+    owner: UK Department for Transport
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-transport
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_cabinet_office_news
+    name: Cabinet Office News
+    owner: UK Cabinet Office
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=cabinet-office
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_ipo_news
+    name: Intellectual Property Office News
+    owner: UK Intellectual Property Office
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=intellectual-property-office
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_space_agency_news
+    name: UK Space Agency News
+    owner: UK Space Agency
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=uk-space-agency
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_defra_news
+    name: Department for Environment Food and Rural Affairs News
+    owner: UK Department for Environment Food and Rural Affairs
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-environment-food-rural-affairs
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_education_news
+    name: Department for Education News
+    owner: UK Department for Education
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-education
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_opss_news
+    name: Office for Product Safety and Standards News
+    owner: UK Office for Product Safety and Standards
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=office-for-product-safety-and-standards
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_natural_england_news
+    name: Natural England News
+    owner: Natural England
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=natural-england
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_export_finance_news
+    name: UK Export Finance News
+    owner: UK Export Finance
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=uk-export-finance
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_hmrc_news
+    name: HM Revenue and Customs News
+    owner: HM Revenue and Customs
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=hm-revenue-customs
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_dwp_news
+    name: Department for Work and Pensions News
+    owner: UK Department for Work and Pensions
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=department-for-work-pensions
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_cps_news
+    name: Crown Prosecution Service News
+    owner: UK Crown Prosecution Service
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=crown-prosecution-service
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_home_office_news
+    name: Home Office News
+    owner: UK Home Office
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=home-office
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_hse_news
+    name: Health and Safety Executive News
+    owner: UK Health and Safety Executive
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=health-and-safety-executive
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_sfo_news
+    name: Serious Fraud Office News
+    owner: UK Serious Fraud Office
+    region: UK
+    language: en
+    source_type: regulator
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=serious-fraud-office
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: uk_housing_news
+    name: Ministry of Housing Communities and Local Government News
+    owner: UK Ministry of Housing Communities and Local Government
+    region: UK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: atom
+    entry_url: https://www.gov.uk/search/news-and-communications.atom?organisations%5B%5D=ministry-of-housing-communities-local-government
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official GOV.UK Atom feed; retain Crown copyright attribution under applicable terms.
+  - id: jp_boj_news
+    name: Bank of Japan What's New
+    owner: Bank of Japan
+    region: JP
+    language: en
+    source_type: central_bank
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.boj.or.jp/en/rss/whatsnew.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official central-bank feed; retain attribution and review reuse terms.
+  - id: intl_wipo_news
+    name: WIPO Press Room
+    owner: World Intellectual Property Organization
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.wipo.int/pressroom/en/rss.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official international-organization feed; review WIPO reuse policies.
+  - id: intl_iaea_news
+    name: IAEA Top News
+    owner: International Atomic Energy Agency
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.iaea.org/feeds/topnews
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official international-organization feed; review IAEA reuse policies.
+  - id: intl_fsb_news
+    name: Financial Stability Board News
+    owner: Financial Stability Board
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.fsb.org/feed/
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official financial-standard-setter feed; retain source attribution.
+  - id: intl_iosco_news
+    name: IOSCO News
+    owner: International Organization of Securities Commissions
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.iosco.org/rss/rss.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official international securities-regulator feed; retain source attribution.
+  - id: intl_itu_news
+    name: ITU News
+    owner: International Telecommunication Union
+    region: GLOBAL
+    language: en
+    source_type: international_organization
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.itu.int/hub/feed/
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official international-organization feed; review ITU reuse policies.
+  - id: cn_xinhua_china_en
+    name: Xinhua China News
+    owner: Xinhua News Agency
+    region: CN
+    language: en
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://www.xinhuanet.com/english/rss/chinarss.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: State news-agency feed; treat as authoritative reporting rather than independent primary evidence.
+  - id: cn_xinhua_world_en
+    name: Xinhua World News
+    owner: Xinhua News Agency
+    region: CN
+    language: en
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://www.xinhuanet.com/english/rss/worldrss.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: State news-agency feed; treat as authoritative reporting rather than independent primary evidence.
+  - id: cn_xinhua_politics_zh
+    name: 新华网时政
+    owner: 新华通讯社
+    region: CN
+    language: zh
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://www.xinhuanet.com/politics/news_politics.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: 新华社官方新闻源；作为权威报道使用，不自动等同于事件主体的一手证据。
+  - id: cn_xinhua_finance_zh
+    name: 新华网财经
+    owner: 新华通讯社
+    region: CN
+    language: zh
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://www.xinhuanet.com/fortune/news_fortune.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: 新华社官方新闻源；作为权威报道使用，不自动等同于事件主体的一手证据。
+  - id: cn_xinhua_technology_zh
+    name: 新华网科技
+    owner: 新华通讯社
+    region: CN
+    language: zh
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://www.xinhuanet.com/tech/news_tech.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: 新华社官方新闻源；作为权威报道使用，不自动等同于事件主体的一手证据。
+  - id: cn_people_politics_zh
+    name: 人民网时政
+    owner: 人民日报社
+    region: CN
+    language: zh
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://www.people.com.cn/rss/politics.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: 人民日报社官方新闻源；作为权威报道使用，不自动等同于事件主体的一手证据。
+  - id: cn_people_china_en
+    name: People's Daily China News
+    owner: People's Daily
+    region: CN
+    language: en
+    source_type: media
+    tier: S2
+    official: false
+    method: rss
+    entry_url: https://en.people.cn/rss/90000.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: State media feed; treat as authoritative reporting rather than independent primary evidence.
+  - id: hk_government_releases
+    name: Hong Kong Government Press Releases
+    owner: Hong Kong Government Information Services
+    region: HK
+    language: en
+    source_type: government
+    tier: S1
+    official: true
+    method: rss
+    entry_url: https://www.info.gov.hk/gia/rss/general_en.xml
+    content_policy: metadata_and_excerpt
+    compliance_notes: Official government feed; retain attribution and review Hong Kong government reuse terms.

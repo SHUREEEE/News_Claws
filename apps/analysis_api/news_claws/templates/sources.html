@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}来源管理 · News Claws{% endblock %}
+{% block content %}
+{% set method_labels = {
+  'rss': 'RSS',
+  'atom': 'Atom',
+  'api': 'API',
+  'sitemap': '站点地图',
+  'manual': '人工录入',
+  'fixture': '本地演示'
+} %}
+{% set content_policy_labels = {
+  'metadata_only': '仅元数据',
+  'metadata_and_excerpt': '元数据与摘要',
+  'fulltext_allowed': '允许全文'
+} %}
+<section class="page-heading"
+  <div><p class="eyebrow">采集治理</p><h1>来源管理</h1></div>
+  <button class="primary-button" type="button" data-pull-news>抓取全部实时来源</button>
+</section>
+<section class="source-table" aria-label="来源目录">
+  <header><span>来源</span><span>地区 / 语言</span><span>层级</span><span>策略</span><span>健康</span><span>操作</span></header>
+  {% for source in sources %}
+  <article>
+    <div><strong>{% if source.is_demo %}<b class="demo-label">DEMO</b>{% endif %}{{ source.name }}</strong><small>{{ source.owner }}{% if not source.enabled %} · 已停用{% endif %}</small></div>
+    <div data-label="地区 / 语言">{{ source.region }} / {{ source.language }}</div>
+    <div data-label="层级">{{ source.tier }}{% if source.official %} · 官方{% endif %}</div>
+    <div data-label="策略"><code>{{ method_labels.get(source.method, source.method) }}</code><small>{{ content_policy_labels.get(source.content_policy, source.content_policy) }}</small></div>
+    <div data-label="健康">
+      {% if source.last_success_at %}
+      <b class="health-{% if source.consecutive_failures == 0 %}ok{% else %}error{% endif %}">{% if source.consecutive_failures == 0 %}正常{% else %}失败 {{ source.consecutive_failures }} 次{% endif %}</b>
+      <small>最近成功 {{ source.last_success_at.strftime('%m-%d %H:%M') }}</small>
+      {% elif source.consecutive_failures > 0 %}
+      <b class="health-error">失败 {{ source.consecutive_failures }} 次</b><small>尚无成功记录</small>
+      {% else %}
+      <b class="health-unknown">未验证</b><small>尚未运行</small>
+      {% endif %}
+    </div>
+    <div data-label="操作">
+      <button class="quiet-button" type="button" data-source-test="{{ source.id }}">测试</button>
+      {% if not source.is_demo %}
+      <button class="quiet-button" type="button" data-source-toggle="{{ source.id }}" data-enabled="{{ 'true' if source.enabled else 'false' }}">{{ '停用' if source.enabled else '启用' }}</button>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

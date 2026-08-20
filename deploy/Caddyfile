@@ -1,0 +1,28 @@
+{$DOMAIN} {
+	encode zstd gzip
+
+	@live path /health/live
+	handle @live {
+		reverse_proxy analysis-api:8000
+	}
+
+	handle {
+		basic_auth {
+			{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+		}
+		reverse_proxy analysis-api:8000
+	}
+
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

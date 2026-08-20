@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}事件看板 · News Claws{% endblock %}
+{% block content %}
+{% set verification_labels = {
+  'primary_source_confirmed': '原始材料确认',
+  'multi_source_corroborated': '多源印证',
+  'single_source_reported': '单一来源报道',
+  'disputed': '存在争议',
+  'withdrawn_or_disproved': '已撤回 / 已证伪',
+  'pending': '待核实'
+} %}
+<section class="page-heading"
+  <div>
+    <p class="eyebrow">事件情报</p>
+    <h1>最新事件</h1>
+  </div>
+  <button class="primary-button" type="button" data-pull-news>抓取最新来源</button>
+</section>
+
+<section class="metric-strip" aria-label="系统概览">
+  <div><strong>{{ summary.events }}</strong><span>事件</span></div>
+  <div><strong>{{ summary.articles }}</strong><span>文章</span></div>
+  <div><strong>{{ summary.reports }}</strong><span>报告</span></div>
+  <div><strong>{{ summary.healthy_sources }}/{{ summary.sources }}</strong><span>健康来源</span></div>
+</section>
+
+<form class="filter-bar" method="get" action="/">
+  <label class="search-field">
+    <span class="sr-only">搜索事件</span>
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="搜索标题、机构或主题">
+  </label>
+  <label>
+    <span class="sr-only">核实状态</span>
+    <select name="verification">
+      <option value="">全部核实状态</option>
+      {% for value, label in [
+        ('primary_source_confirmed','原始材料确认'),
+        ('multi_source_corroborated','多源印证'),
+        ('single_source_reported','单一来源报道'),
+        ('disputed','存在争议'),
+        ('withdrawn_or_disproved','已撤回 / 已证伪')
+      ] %}
+      <option value="{{ value }}" {% if filters.verification == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span class="sr-only">地区</span>
+    <select name="region">
+      <option value="">全部地区</option>
+      {% for code in ['CN','US','EU','UK','JP','GLOBAL'] %}
+      <option value="{{ code }}" {% if filters.region == code %}selected{% endif %}>{{ code }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="segmented" role="group" aria-label="数据集">
+    <button name="dataset" value="all" {% if filters.dataset == 'all' %}aria-pressed="true"{% endif %}>全部</button>
+    <button name="dataset" value="live" {% if filters.dataset == 'live' %}aria-pressed="true"{% endif %}>实时</button>
+    <button name="dataset" value="demo" {% if filters.dataset == 'demo' %}aria-pressed="true"{% endif %}>演示</button>
+  </div>
+  <button type="submit" class="quiet-button">筛选</button>
+</form>
+
+<section class="event-list" aria-label="事件列表">
+  <header class="event-list-head" aria-hidden="true">
+    <span>事件</span><span>核实</span><span>来源链</span><span>最高关联</span><span>更新时间</span>
+  </header>
+  {% for item in events %}
+  <a class="event-row" href="/events/{{ item.id }}">
+    <span class="event-title">
+      <span>{% if item.is_demo %}<b class="demo-label">DEMO</b>{% endif %}{{ item.title }}</span>
+      <small>{{ item.regions | join(' / ') }} · {{ item.article_count }} 篇文章</small>
+    </span>
+    <span><b class="status status-{{ item.verification_status }}">{{ verification_labels.get(item.verification_status, item.verification_status) }}</b></span>
+    <span data-label="来源链">{{ item.independent_chain_count }}</span>
+    <span data-label="最高关联">{{ item.max_relevance }}</span>
+    <time data-label="更新时间" datetime="{{ item.last_seen.isoformat() }}">{{ item.last_seen.strftime('%m-%d %H:%M') }}</time>
+  </a>
+  {% else %}
+  <div class="empty-state">
+    <h2>暂无匹配事件</h2>
+    <p>调整筛选条件，或抓取已启用的实时来源。</p>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,23 @@
+services:
+  analysis-api:
+    build:
+      context: .
+      dockerfile: apps/analysis_api/Dockerfile
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:////data/analysis.db
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - analysis-data:/data
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  analysis-data:
