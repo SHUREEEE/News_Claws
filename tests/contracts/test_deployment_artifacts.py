@@ -61,11 +61,15 @@ def test_release_workflow_publishes_sha_tagged_image_with_supply_chain_metadata(
     assert workflow["permissions"]["contents"] == "read"
     assert workflow["permissions"]["packages"] == "write"
     assert set(workflow["permissions"]) == {"contents", "packages"}
-    assert any(step.get("uses") == "docker/login-action@v3" for step in steps)
+    assert any(step.get("uses") == "actions/checkout@v7" for step in steps)
+    assert any(step.get("uses") == "docker/setup-buildx-action@v4" for step in steps)
+    assert any(step.get("uses") == "docker/login-action@v4" for step in steps)
     metadata = next(step for step in steps if step.get("id") == "metadata")
+    assert metadata["uses"] == "docker/metadata-action@v6"
     assert metadata["with"]["flavor"] == "latest=false"
     assert "type=raw,value=${{ github.sha }}" in metadata["with"]["tags"]
     push = next(step for step in steps if step.get("id") == "push")
+    assert push["uses"] == "docker/build-push-action@v7"
     assert push["with"]["push"] is True
     assert push["with"]["platforms"] == "linux/amd64"
     assert push["with"]["provenance"] == "mode=max"
@@ -74,3 +78,15 @@ def test_release_workflow_publishes_sha_tagged_image_with_supply_chain_metadata(
         step for step in steps if step.get("name") == "Verify immutable image digest"
     )
     assert digest_check["env"]["EXPECTED_DIGEST"] == "${{ steps.push.outputs.digest }}"
+
+
+def test_ci_uses_node24_action_releases() -> None:
+    workflow = yaml.safe_load(
+        (PROJECT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    )
+    uses = [
+        step["uses"] for job in workflow["jobs"].values() for step in job["steps"] if "uses" in step
+    ]
+
+    assert uses.count("actions/checkout@v7") == 2
+    assert uses.count("actions/setup-python@v7") == 2
