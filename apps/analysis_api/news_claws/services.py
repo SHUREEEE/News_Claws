@@ -94,6 +94,10 @@ MECHANISM_LABELS = {
     "unknown": "未知",
 }
 
+LIVE_CLUSTER_SIMILARITY_THRESHOLD = 0.72
+DEMO_CLUSTER_SIMILARITY_THRESHOLD = 0.20
+CLUSTER_WINDOW_DAYS = 7
+
 
 def _ensure_utc(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
@@ -153,12 +157,24 @@ def update_source(session: Session, source: Source, payload: SourceUpdate) -> So
 
 
 def _find_cluster(
-    session: Session, title: str, published_at: datetime | None
+    session: Session,
+    title: str,
+    published_at: datetime | None,
+    *,
+    is_demo: bool,
 ) -> tuple[EventCluster | None, float]:
-    cutoff = (published_at or utcnow()) - timedelta(days=7)
+    article_time = published_at or utcnow()
+    window_start = article_time - timedelta(days=CLUSTER_WINDOW_DAYS)
+    window_end = article_time + timedelta(days=CLUSTER_WINDOW_DAYS)
     candidates = session.scalars(
         select(EventCluster)
-        .where(EventCluster.last_seen >= cutoff, EventCluster.locked.is_(False))
+        .where(
+            EventCluster.last_seen >= window_start,
+            EventCluster.last_seen <= window_end,
+            EventCluster.state == "active",
+            EventCluster.locked.is_(False),
+            EventCluster.is_demo.is_(is_demo),
+        )
         .order_by(EventCluster.last_seen.desc())
         .limit(200)
     )
@@ -168,7 +184,8 @@ def _find_cluster(
         score = jaccard_similarity(title, event.title)
         if score > best_score:
             best, best_score = event, score
-    return (best, best_score) if best_score >= 0.20 else (None, best_score)
+    threshold = DEMO_CLUSTER_SIMILARITY_THRESHOLD if is_demo else LIVE_CLUSTER_SIMILARITY_THRESHOLD
+    return (best, best_score) if best_score >= threshold else (None, best_score)
 
 
 def _assign_independence_group(
@@ -280,7 +297,7 @@ def ingest_article(
         event = session.get(EventCluster, membership.event_id)
         assert event is not None
     else:
-        event, score = _find_cluster(session, title, published_at)
+        event, score = _find_cluster(session, title, published_at, is_demo=source.is_demo)
         if event is None:
             event = EventCluster(
                 title=title,

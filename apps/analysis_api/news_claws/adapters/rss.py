@@ -48,7 +48,12 @@ def _first_text(node: ElementTree.Element, names: tuple[str, ...]) -> str:
     return ""
 
 
-def parse_feed(payload: bytes, limit: int = 20) -> list[FeedEntry]:
+def parse_feed(
+    payload: bytes,
+    limit: int = 20,
+    *,
+    base_url: str | None = None,
+) -> list[FeedEntry]:
     declaration_probe = payload[:4096].upper()
     if b"<!DOCTYPE" in declaration_probe or b"<!ENTITY" in declaration_probe:
         raise ValueError("Feed XML declarations cannot contain DOCTYPE or ENTITY")
@@ -66,17 +71,20 @@ def parse_feed(payload: bytes, limit: int = 20) -> list[FeedEntry]:
         author = _first_text(node, ("author", "creator")) or None
         published = _first_text(node, ("pubDate", "published", "issued", "date"))
         updated = _first_text(node, ("updated", "modified"))
-        link = _first_text(node, ("link", "guid"))
+        link = _first_text(node, ("link",))
         if not link:
             for child in list(node):
                 if child.tag.rsplit("}", 1)[-1] == "link" and child.attrib.get("href"):
                     link = child.attrib["href"]
                     break
+        if not link:
+            link = _first_text(node, ("guid",))
         if title and link:
+            resolved_link = urljoin(base_url, link) if base_url else link
             entries.append(
                 FeedEntry(
                     title=title,
-                    url=link,
+                    url=resolved_link,
                     summary=summary,
                     published_at=_parse_date(published),
                     updated_at=_parse_date(updated),
@@ -131,5 +139,8 @@ async def fetch_feed(
                     payload.extend(chunk)
                     if len(payload) > MAX_FEED_BYTES:
                         raise ValueError("Feed exceeds the 2 MB safety limit")
-                return parse_feed(bytes(payload), limit=limit), response.status_code
+                return (
+                    parse_feed(bytes(payload), limit=limit, base_url=current_url),
+                    response.status_code,
+                )
     raise httpx.TooManyRedirects("Feed exceeded the redirect limit")

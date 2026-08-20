@@ -48,7 +48,7 @@ def content_hash(*parts: str | None) -> str:
 
 def text_tokens(value: str) -> set[str]:
     normalized = normalize_text(value).lower()
-    latin = set(re.findall(r"[a-z0-9][a-z0-9._-]+", normalized))
+    latin = set(re.findall(r"[a-z][a-z0-9._-]+|\b\d+\b", normalized))
     cjk_chunks = re.findall(r"[\u3400-\u9fff]+", normalized)
     cjk = {
         chunk[index : index + 2] for chunk in cjk_chunks for index in range(max(1, len(chunk) - 1))

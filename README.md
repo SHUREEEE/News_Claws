@@ -84,12 +84,16 @@ application remains a single replica because SQLite is the MVP persistence bound
 
 ~~~bash
 cp .env.production.example .env.production
-# Replace every placeholder, generate the Caddy bcrypt hash, and point DOMAIN DNS at the host.
+# Set NEWS_CLAWS_IMAGE_TAG to the 7-40 character Git SHA being released.
+# Put the Caddy bcrypt hash in single quotes so its dollar signs remain literal.
+# Replace every placeholder and point DOMAIN DNS at the host.
 python scripts/validate_production_env.py .env.production
 docker compose --env-file .env.production -f compose.prod.yaml config
 docker compose --env-file .env.production -f compose.prod.yaml build --pull
 docker compose --env-file .env.production -f compose.prod.yaml up -d
 ~~~
+
+After public DNS and TLS are active, run `scripts/smoke_public.py` as described in the production Runbook. It performs read-only checks for the gateway, security headers, application authentication and core UI/API routes.
 
 Production defaults disable demo data, require a 32-character administrator secret, validate the
 Host header, enforce a 1 MB request limit and run scheduled collection every 15 minutes. See

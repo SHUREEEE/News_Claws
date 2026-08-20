@@ -2,11 +2,37 @@ name: news-claws
 
 services:
   analysis-api:
+    image: news-claws-analysis-api:${NEWS_CLAWS_IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: apps/analysis_api/Dockerfile
-    env_file:
-      - .env.production
+    environment:
+      APP_ENV: ${APP_ENV:?APP_ENV is required}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is required}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?ALLOWED_HOSTS is required}
+      TRENDRADAR_MCP_URL: ${TRENDRADAR_MCP_URL:-http://trendradar-mcp:3333/mcp}
+      TRENDRADAR_ENABLED: ${TRENDRADAR_ENABLED:-false}
+      SEARCH_PROVIDER: ${SEARCH_PROVIDER:-disabled}
+      LLM_PROVIDER: ${LLM_PROVIDER:-deterministic}
+      LLM_MODEL: ${LLM_MODEL:-rules-v1}
+      DAILY_LLM_BUDGET: ${DAILY_LLM_BUDGET:-5.00}
+      DATA_RETENTION_DAYS: ${DATA_RETENTION_DAYS:-365}
+      SEED_DEMO: ${SEED_DEMO:?SEED_DEMO is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MAX_REQUEST_BYTES: ${MAX_REQUEST_BYTES:-1048576}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-true}
+      SCHEDULER_INTERVAL_SECONDS: ${SCHEDULER_INTERVAL_SECONDS:-900}
+      SCHEDULER_MAX_ITEMS: ${SCHEDULER_MAX_ITEMS:-20}
+      OUTBOUND_USER_AGENT: ${OUTBOUND_USER_AGENT:?OUTBOUND_USER_AGENT is required}
+      NOTIFICATION_ENABLED: ${NOTIFICATION_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      NOTIFICATION_BATCH_SIZE: ${NOTIFICATION_BATCH_SIZE:-100}
     expose:
       - "8000"
     volumes:
@@ -34,8 +60,10 @@ services:
 
   caddy:
     image: caddy:2.10.2-alpine
-    env_file:
-      - .env.production
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?BASIC_AUTH_USER is required}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?BASIC_AUTH_HASH is required}
     depends_on:
       analysis-api:
         condition: service_healthy

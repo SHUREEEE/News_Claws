@@ -103,3 +103,48 @@ No root cause reached the three-return stop condition.
 - Production release: blocked.
 - Blocking inputs: Git remote, Linux/Docker target, domain/DNS, production secrets, real contact email, SMTP configuration, reviewed official exchange files and a human-labeled 200-event benchmark.
 - These inputs were not fabricated. Public HTTPS, real notification delivery, production data migration, rollback and post-deploy browser smoke remain pending.
+
+## 2026-08-20 - Production Artifact Hardening
+
+- Evidence class: verified fact.
+- Fixed non-root container ownership for both `/data` and `/backups`.
+- Added immutable Git SHA image tagging and executable same-schema rollback commands.
+- Changed Compose from whole-file environment injection to per-service variables. Caddy receives only `DOMAIN`, `BASIC_AUTH_USER` and `BASIC_AUTH_HASH`; it no longer receives the application administrator token or SMTP password.
+- Production environment parsing now preserves single-quoted bcrypt dollar signs, rejects duplicate/unbalanced entries, constrains the SQLite path to `/data`, and validates gateway credentials, booleans and runtime numeric ranges before startup.
+- Added `scripts/smoke_public.py`, a read-only HTTPS smoke covering anonymous liveness, whole-site Basic Auth, readiness, security headers, administrator-token enforcement, events, subscriptions and audit APIs.
+- CI now enforces Ruff formatting, warnings-as-errors tests, JavaScript syntax and non-root data/backup write access inside the built image.
+- Final local gate: 73 tests passed; domain branch coverage 89.06%; Ruff format/check, compileall, JavaScript syntax and dependency audit passed.
+- The placeholder production template failed validation for the expected five unresolved release values.
+- Limitation: Docker is not installed in this environment, so actual image build and Compose rendering remain CI/deployment-host checks.
+
+## 2026-08-20 - Real-Data Clustering Repair
+
+- Evidence class: verified fact.
+- A real event incorrectly combined an ONS labour-market release with a CMA road-fuel-market release. The stored title Jaccard score was 0.214 against the previous 0.20 live threshold.
+- WP-2 returned to Phase 05. Live automatic clustering now requires 0.72 similarity, matches only active and unlocked events in the same live/demo data domain, and uses a symmetric seven-day candidate window.
+- The first fresh 52-source replay ingested 260 articles. Its all-cluster audit exposed a second defect: standalone one-digit dates were discarded, making separate EBA and DfE dated alerts appear identical.
+- Standalone numbers are now retained as tokens. Focused clustering, demo-pipeline and normalization verification passed 15 tests; Ruff passed.
+- The second fresh replay initially passed 50/52 sources. One OPSS transient failure and one SEC DNS failure both passed on one bounded retry, yielding 52/52 eventual success and 260 articles.
+- The repaired dataset contains 254 events and five multi-article events. All five have identical titles across two or more configured sources. The ONS/CMA pair, four EBA alerts and two DfE updates each have distinct event IDs.
+- SQLite `PRAGMA integrity_check` returned `ok`.
+- Decision: this replay is regression and source-connectivity evidence only. It is not substituted for the required 200-event human-reviewed quality benchmark.
+
+| Root cause ID | Checker result | Smallest return | Repair count | Final evidence |
+|---|---|---|---:|---|
+| NC-CLUSTER-001 | A 0.20 title threshold admitted low-information overlap and did not isolate live/demo candidate domains. | Phase 05 cluster candidate policy and focused tests. | 1 | Known unrelated titles are separate; legitimate near-duplicate and demo fixtures still cluster. |
+| NC-CLUSTER-002 | The tokenizer discarded standalone one-digit dates, causing dated alert collisions. | Phase 05 token extraction and two focused tests. | 1 | EBA 3/5/6 August and DfE 5/19 August remain distinct in the fresh replay. |
+| NC-FORMAT-001 | The first final gate found mixed formatting in three patched Python files. | Phase 05 formatter on the three named files only. | 1 | Final full gate reports 65 files formatted and Ruff clean. |
+| NC-MIGRATION-001 | Alembic CLI ignored `DATABASE_URL`, so a successful command could migrate the default database instead of the requested target. | Phase 05 Alembic environment override and one subprocess integration test. | 1 | Explicit target reached `c31e8f2407ad`; target integrity is `ok`. |
+
+No root cause reached the three-return stop condition.
+
+## 2026-08-20 - Post-Repair Candidate Verification
+
+- Evidence class: verified fact.
+- Full pytest gate with warnings treated as errors: 83 passed.
+- Domain branch coverage: 89.06% against the 85% minimum.
+- Ruff format check: 65 files already formatted.
+- Ruff lint, Python compileall and JavaScript syntax checks: passed.
+- Dependency audit: no known vulnerabilities; the unpublished local `news-claws` package was skipped as expected.
+- Fresh isolated Alembic upgrade honored `DATABASE_URL`, reached `c31e8f2407ad`, and passed `PRAGMA integrity_check`.
+- Docker image build and in-container non-root mountpoint checks remain unexecuted because Docker is not installed locally.

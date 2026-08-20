@@ -10,7 +10,7 @@
 - Verification owner: `independent verification pass completed`
 - Budget owner: `Tech Lead (user acting as project approver)`
 - Evidence directory: `evidence/dev-local/`
-- Last evidence: 51/52 live sources passed, production-mode subscription flow passed, and the release-quality gate failed closed because the real 200-event benchmark is absent
+- Last evidence: 83 tests and the full local gate passed; fresh replay eventually passed 52/52 sources and ingested 260 articles into 254 events with five exact-title cross-source clusters; the human benchmark remains absent
 - Next step: obtain the external release inputs listed below, then publish, deploy and run public acceptance
 
 ## Authorization Envelope
@@ -61,3 +61,5 @@
 | 2026-08-20 | ready | passed | WP-7 Checker pass: Ruff clean, 19 tests passed, domain branch coverage 89%, protected browser action 200, console clean, no desktop/mobile horizontal overflow. | final run log |
 | 2026-08-20 | passed | in_progress | User expanded the objective to merge and deploy the completed local candidate. | active goal |
 | 2026-08-20 | in_progress | blocked | Local release checks exposed missing external deployment inputs and the absent real 200-event quality benchmark. | `PLAN.md`, production blockers, run log |
+| 2026-08-20 | passed | in_progress | Real-data audit reopened WP-2 after unrelated official releases were found in one event. | `evidence/dev-local/clustering-audit.md` |
+| 2026-08-20 | in_progress | passed | Two minimal clustering repairs passed focused tests and a fresh 260-article replay. | `tests/integration/test_clustering.py`, clustering audit |
