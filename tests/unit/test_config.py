@@ -60,3 +60,40 @@ def test_notifications_require_complete_smtp_configuration(monkeypatch) -> None:
     with pytest.raises(RuntimeError, match="SMTP_HOST"):
         get_settings()
     get_settings.cache_clear()
+
+
+def test_openai_compatible_mode_requires_endpoint_and_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("LLM_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("LLM_MODEL", "analysis-model")
+    monkeypatch.delenv("LLM_API_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    get_settings.cache_clear()
+    with pytest.raises(RuntimeError, match="LLM_API_BASE_URL"):
+        get_settings()
+    monkeypatch.setenv("LLM_API_BASE_URL", "https://llm.example/v1")
+    with pytest.raises(RuntimeError, match="LLM_API_KEY"):
+        get_settings()
+    get_settings.cache_clear()
+
+
+def test_openai_compatible_mode_loads_bounded_runtime_settings(monkeypatch) -> None:
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("LLM_PROVIDER", "openai-compatible")
+    monkeypatch.setenv("LLM_MODEL", "analysis-model")
+    monkeypatch.setenv("LLM_API_BASE_URL", "https://llm.example/v1")
+    monkeypatch.setenv("LLM_API_KEY", "secret")
+    monkeypatch.setenv("LLM_TIMEOUT_SECONDS", "12")
+    monkeypatch.setenv("LLM_MAX_OUTPUT_TOKENS", "900")
+    monkeypatch.setenv("LLM_PER_EVENT_BUDGET", "0.75")
+    monkeypatch.setenv("LLM_INPUT_COST_PER_MILLION", "2.5")
+    monkeypatch.setenv("LLM_OUTPUT_COST_PER_MILLION", "10")
+    get_settings.cache_clear()
+    settings = get_settings()
+    assert settings.llm_api_base_url == "https://llm.example/v1"
+    assert settings.llm_timeout_seconds == 12
+    assert settings.llm_max_output_tokens == 900
+    assert settings.llm_per_event_budget == 0.75
+    assert settings.llm_input_cost_per_million == 2.5
+    assert settings.llm_output_cost_per_million == 10
+    get_settings.cache_clear()

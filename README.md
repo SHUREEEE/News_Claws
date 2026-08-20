@@ -4,7 +4,7 @@ News Claws is an evidence-first news intelligence MVP. It collects allow-listed 
 
 The repository implements the local `analysis-api` boundary from `NC-PRD-001` and `NC-TDD-001`. TrendRadar and RSSHub remain separately deployable upstream services. The default local run is vendor-independent and uses deterministic, conservative analysis so no LLM or search key is required.
 
-The current catalog contains 56 source definitions covering China, Hong Kong, Japan, the UK, the US, the EU and global institutions. Collection supports RSS/Atom, JSON APIs, sitemaps, article HTML and authenticated manual-URL submission. Company matching supports SEC and official exchange catalogs. Email subscriptions can target companies or industries with a relevance threshold and immediate or daily delivery.
+The current catalog contains 56 source definitions covering China, Hong Kong, Japan, the UK, the US, the EU and global institutions. Collection supports RSS/Atom, JSON APIs, sitemaps, article HTML, allow-listed website discovery and authenticated manual-URL submission. Feed and API entries can be enriched from safely fetched article HTML with Newspaper4k; news-please parses only HTML already fetched by the application. Company matching supports SEC and official exchange catalogs. Email subscriptions can target companies or industries with a relevance threshold and immediate or daily delivery.
 
 ## Local Setup (Windows PowerShell)
 
@@ -13,7 +13,7 @@ Python 3.12 or 3.13 is required.
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,extract,discover]"
 Copy-Item .env.example .env
 $env:ADMIN_TOKEN = 'dev-admin-token'
 .\scripts\dev.ps1
@@ -26,11 +26,23 @@ Open `http://127.0.0.1:8000`. The local development token defaults to `dev-admin
 ```bash
 python3.12 -m venv .venv
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -e '.[dev]'
+.venv/bin/python -m pip install -e '.[dev,extract,discover]'
 cp .env.example .env
 ADMIN_TOKEN=dev-admin-token .venv/bin/python -m uvicorn news_claws.main:app \
   --app-dir apps/analysis_api --host 127.0.0.1 --port 8000
 ```
+
+## Collection And Analysis Modes
+
+Each source selects `parser=auto|metadata|newspaper4k|news-please`. A `metadata_only` content policy never fetches article pages. RSS/API entries use at most four concurrent safe article fetches; extraction failures preserve feed metadata and record diagnostics instead of inventing text.
+
+`method=website` is disabled unless the source ID appears in `NEWS_PLEASE_DISCOVERY_SOURCE_IDS`. Website sources require `parser=news-please` and an excerpt-enabled content policy. Discovery fetches only same-origin HTML through the SSRF-safe client, honors `robots.txt`, and does not invoke the news-please crawler or downloader.
+
+The default `LLM_PROVIDER=deterministic` mode makes no external model call. Optional `openai-compatible` mode requires `LLM_API_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, positive daily/per-event budgets and finite token prices. It sends a strict JSON Schema request, validates all target/evidence IDs against server-side allow-lists and permits one repair call for malformed output.
+
+External calls are bounded to 12 evidence records, 24 industry candidates, 12 companies, three aliases per company and 6,000 event-text characters. Successful and schema-invalid calls record token usage and estimated cost. Invalid evidence IDs fail immediately; a second schema failure marks the job dead and creates no valid report. Provider failures enter `retry_wait`.
+
+Merge and split APIs return the committed event ID plus `analysis_status` and `analysis_error`; a later model failure does not misreport an already committed cluster correction as rolled back.
 
 ## Main Commands
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from typing import Any
 from urllib.parse import urljoin
 from xml.etree import ElementTree
 
@@ -23,6 +24,8 @@ class FeedEntry:
     updated_at: datetime | None
     author: str | None
     origin_url: str | None = None
+    body_excerpt: str = ""
+    parse_diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 def _parse_date(value: str | None) -> datetime | None:

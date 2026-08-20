@@ -48,6 +48,7 @@ class Source(Base):
     schedule: Mapped[str] = mapped_column(String(80), default="*/15 * * * *")
     timezone: Mapped[str] = mapped_column(String(80), default="UTC")
     content_policy: Mapped[str] = mapped_column(String(40), default="metadata_and_excerpt")
+    parser: Mapped[str] = mapped_column(String(32), default="auto")
     compliance_notes: Mapped[str] = mapped_column(Text, default="")
     contact_owner: Mapped[str] = mapped_column(String(120), default="source-admin")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True, index=True)

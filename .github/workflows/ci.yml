@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install -e ".[dev]"
+      - run: python -m pip install -e ".[dev,extract,discover]"
       - run: python -m ruff format --check .
       - run: python -m ruff check .
       - run: python -m pytest -W error --cov=news_claws.domain --cov-branch --cov-fail-under=85
@@ -53,5 +53,5 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install ".[dev]"
+      - run: python -m pip install ".[dev,extract,discover]"
       - run: python -m pip_audit

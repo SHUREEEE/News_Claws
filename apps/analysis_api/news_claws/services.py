@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -11,10 +12,24 @@ import httpx
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from .adapters.http_sources import fetch_api_entries, fetch_html_entry, fetch_sitemap_entries
+from .adapters.http_sources import (
+    discover_site_entries,
+    fetch_api_entries,
+    fetch_html_entry,
+    fetch_sitemap_entries,
+)
+from .adapters.llm import LLMProviderError, OpenAICompatibleLLM, compact_json
 from .adapters.rss import fetch_feed
 from .catalog import load_yaml
 from .config import Settings
+from .domain.llm import (
+    LLMBudget,
+    LLMContractError,
+    LLMMessage,
+    LLMPort,
+    ValidatedLLMOutput,
+    complete_model_analysis,
+)
 from .domain.normalization import canonicalize_url, content_hash, jaccard_similarity, normalize_text
 from .domain.security import UnsafeUrlError
 from .domain.verification import EvidenceFact, decide_verification
@@ -97,6 +112,41 @@ MECHANISM_LABELS = {
 LIVE_CLUSTER_SIMILARITY_THRESHOLD = 0.72
 DEMO_CLUSTER_SIMILARITY_THRESHOLD = 0.20
 CLUSTER_WINDOW_DAYS = 7
+MAX_LLM_EVIDENCE = 12
+MAX_LLM_INDUSTRIES = 24
+MAX_LLM_COMPANIES = 12
+MAX_LLM_ALIASES = 3
+MAX_LLM_KEYWORDS_PER_INDUSTRY = 6
+MAX_LLM_KEYWORD_CHARS = 48
+MAX_LLM_EVIDENCE_QUOTE_CHARS = 320
+MAX_LLM_TARGET_NAME_CHARS = 160
+MAX_LLM_ALIAS_CHARS = 80
+MAX_LLM_EVENT_TEXT_CHARS = 6_000
+
+
+@dataclass(frozen=True)
+class PreparedAnalysis:
+    event_id: str
+    input_hash: str
+    combined_text: str
+    evidence_ids: tuple[str, ...]
+    verification_id: str
+    impact_run_id: str
+
+
+@dataclass(frozen=True)
+class LLMPromptContext:
+    messages: tuple[LLMMessage, ...]
+    evidence_ids: frozenset[str]
+    industry_ids: frozenset[str]
+    company_ids: frozenset[str]
+
+
+@dataclass(frozen=True)
+class EventMutationResult:
+    event_id: str
+    analysis_status: str
+    analysis_error: str | None
 
 
 def _ensure_utc(value: datetime) -> datetime:
@@ -135,6 +185,15 @@ def _event_input_hash(session: Session, event_id: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _analysis_input_hash(session: Session, event_id: str, settings: Settings) -> str:
+    source_hash = _event_input_hash(session, event_id)
+    analysis_version = (
+        "deterministic-v1" if settings.llm_provider == "deterministic" else "structured-impact-v1"
+    )
+    value = ":".join([source_hash, settings.llm_provider, settings.llm_model, analysis_version])
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 def create_source(session: Session, payload: SourceCreate) -> Source:
     if session.get(Source, payload.id):
         raise ValueError(f"Source already exists: {payload.id}")
@@ -150,6 +209,13 @@ def update_source(session: Session, source: Source, payload: SourceUpdate) -> So
     changes = payload.model_dump(exclude_unset=True)
     if not changes:
         raise ValueError("At least one source field must be provided")
+    proposed_method = changes.get("method", source.method)
+    proposed_parser = changes.get("parser", source.parser)
+    proposed_policy = changes.get("content_policy", source.content_policy)
+    if proposed_method == "website" and proposed_parser != "news-please":
+        raise ValueError("website sources require parser=news-please")
+    if proposed_method == "website" and proposed_policy == "metadata_only":
+        raise ValueError("website sources require an excerpt-enabled content policy")
     for key, value in changes.items():
         setattr(source, key, value)
     session.commit()
@@ -362,7 +428,13 @@ def _alias_matches(text: str, alias: EntityAlias) -> bool:
     return re.search(rf"(?<![A-Z0-9]){re.escape(ticker)}(?![A-Z0-9])", text) is not None
 
 
-def analyze_event(session: Session, event_id: str, settings: Settings) -> Report:
+def _prepare_event_analysis(
+    session: Session,
+    event_id: str,
+    settings: Settings,
+    *,
+    input_hash: str,
+) -> PreparedAnalysis:
     event = session.get(EventCluster, event_id)
     if event is None:
         raise LookupError(f"Event not found: {event_id}")
@@ -376,8 +448,6 @@ def analyze_event(session: Session, event_id: str, settings: Settings) -> Report
     if not rows:
         raise ValueError("Cannot analyze an event with no articles")
     versions = {article.id: _latest_version(session, article.id) for article, _source in rows}
-    input_hash = _event_input_hash(session, event_id)
-
     session.execute(
         update(Claim)
         .where(Claim.event_id == event_id, Claim.is_current.is_(True))
@@ -494,6 +564,8 @@ def analyze_event(session: Session, event_id: str, settings: Settings) -> Report
             article.title
             + " "
             + ((versions[article.id].summary if versions[article.id] else "") or "")
+            + " "
+            + ((versions[article.id].body_excerpt if versions[article.id] else "") or "")
             for article, _source in rows
         )
     )
@@ -594,14 +666,423 @@ def analyze_event(session: Session, event_id: str, settings: Settings) -> Report
         "evidence_ids": default_evidence_ids,
     }
     session.flush()
+    return PreparedAnalysis(
+        event_id=event_id,
+        input_hash=input_hash,
+        combined_text=combined_text_original,
+        evidence_ids=tuple(item.id for item in evidence_rows),
+        verification_id=verification.id,
+        impact_run_id=impact_run.id,
+    )
+
+
+def analyze_event(session: Session, event_id: str, settings: Settings) -> Report:
+    input_hash = _analysis_input_hash(session, event_id, settings)
+    existing_report = session.scalar(
+        select(Report)
+        .where(Report.event_id == event_id, Report.input_hash == input_hash)
+        .order_by(Report.version.desc())
+    )
+    if existing_report is not None:
+        session.commit()
+        return existing_report
+    prepared = _prepare_event_analysis(
+        session,
+        event_id,
+        settings,
+        input_hash=input_hash,
+    )
     report = persist_report(
         session,
         event_id,
-        input_hash=input_hash,
+        input_hash=prepared.input_hash,
         model=settings.llm_model,
         prompt_version="deterministic-report-v1",
     )
     queue_report_notifications(session, report)
+    session.commit()
+    return report
+
+
+def _llm_industry_candidates(session: Session, event_id: str) -> list[Industry]:
+    direct_ids = list(
+        session.scalars(
+            select(IndustryImpact.industry_id)
+            .where(IndustryImpact.event_id == event_id)
+            .order_by(IndustryImpact.relevance.desc())
+            .limit(MAX_LLM_INDUSTRIES)
+        )
+    )
+    candidates = [
+        industry for industry_id in direct_ids if (industry := session.get(Industry, industry_id))
+    ]
+    if len(candidates) < MAX_LLM_INDUSTRIES:
+        query = select(Industry)
+        if direct_ids:
+            query = query.where(Industry.id.not_in(direct_ids))
+        candidates.extend(
+            session.scalars(query.order_by(Industry.id).limit(MAX_LLM_INDUSTRIES - len(candidates)))
+        )
+    return candidates
+
+
+def _llm_company_candidates(session: Session, event_id: str) -> list[Entity]:
+    direct_ids = list(
+        session.scalars(
+            select(CompanyImpact.entity_id)
+            .where(CompanyImpact.event_id == event_id)
+            .order_by(CompanyImpact.relevance.desc())
+        )
+    )
+    candidates = [entity for entity_id in direct_ids if (entity := session.get(Entity, entity_id))]
+    industry_ids = set(
+        session.scalars(
+            select(IndustryImpact.industry_id).where(IndustryImpact.event_id == event_id)
+        )
+    )
+    if industry_ids and len(candidates) < MAX_LLM_COMPANIES:
+        candidates.extend(
+            session.scalars(
+                select(Entity)
+                .where(
+                    Entity.entity_type == "company",
+                    Entity.industry_id.in_(industry_ids),
+                    Entity.id.not_in(direct_ids),
+                )
+                .order_by(Entity.id)
+                .limit(MAX_LLM_COMPANIES - len(candidates))
+            )
+        )
+    return candidates[:MAX_LLM_COMPANIES]
+
+
+def _llm_prompt_context(session: Session, prepared: PreparedAnalysis) -> LLMPromptContext:
+    evidence_rows = list(
+        session.scalars(
+            select(Evidence)
+            .where(Evidence.id.in_(prepared.evidence_ids))
+            .order_by(Evidence.id)
+            .limit(MAX_LLM_EVIDENCE)
+        )
+    )
+    evidence = [
+        {
+            "id": item.id,
+            "source_tier": item.source_tier,
+            "stance": item.stance,
+            "quote": item.quote[:MAX_LLM_EVIDENCE_QUOTE_CHARS],
+            "independence_group": item.independence_group,
+        }
+        for item in evidence_rows
+    ]
+    industry_rows = _llm_industry_candidates(session, prepared.event_id)
+    industries = [
+        {
+            "id": item.id,
+            "name": item.name[:MAX_LLM_TARGET_NAME_CHARS],
+            "keywords": [
+                normalize_text(str(keyword))[:MAX_LLM_KEYWORD_CHARS]
+                for keyword in item.keywords[:MAX_LLM_KEYWORDS_PER_INDUSTRY]
+            ],
+        }
+        for item in industry_rows
+    ]
+    companies = []
+    company_rows = _llm_company_candidates(session, prepared.event_id)
+    for entity in company_rows:
+        aliases = list(
+            session.scalars(
+                select(EntityAlias.alias)
+                .where(EntityAlias.entity_id == entity.id, EntityAlias.negative.is_(False))
+                .order_by(EntityAlias.alias)
+                .limit(MAX_LLM_ALIASES)
+            )
+        )
+        companies.append(
+            {
+                "id": entity.id,
+                "name": entity.canonical_name[:MAX_LLM_TARGET_NAME_CHARS],
+                "industry_id": entity.industry_id,
+                "aliases": [alias[:MAX_LLM_ALIAS_CHARS] for alias in aliases],
+            }
+        )
+    payload = compact_json(
+        {
+            "event_id": prepared.event_id,
+            "event_text": prepared.combined_text[:MAX_LLM_EVENT_TEXT_CHARS],
+            "evidence": evidence,
+            "allowed_industries": industries,
+            "allowed_companies": companies,
+        }
+    )
+    if len(payload) > 40_000:
+        raise RuntimeError("Bounded LLM prompt unexpectedly exceeds the message contract")
+    return LLMPromptContext(
+        messages=(
+            LLMMessage(
+                role="system",
+                content=(
+                    "You analyze news impacts using only the supplied evidence and target catalogs. "
+                    "Return JSON matching the schema. Never invent target IDs or evidence IDs. "
+                    "Relevance is 0-100 and is distinct from impact strength and confidence. "
+                    "State uncertainty conservatively; this is not investment advice."
+                ),
+            ),
+            LLMMessage(role="user", content=payload),
+        ),
+        evidence_ids=frozenset(item.id for item in evidence_rows),
+        industry_ids=frozenset(item.id for item in industry_rows),
+        company_ids=frozenset(item.id for item in company_rows),
+    )
+
+
+def _remaining_llm_budget(session: Session, settings: Settings) -> float:
+    start_of_day = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    spent = float(
+        session.scalar(
+            select(func.coalesce(func.sum(AnalysisRun.cost), 0.0)).where(
+                AnalysisRun.created_at >= start_of_day
+            )
+        )
+        or 0.0
+    )
+    return max(0.0, min(settings.llm_per_event_budget, settings.daily_llm_budget - spent))
+
+
+def _apply_model_analysis(
+    session: Session,
+    prepared: PreparedAnalysis,
+    validated: ValidatedLLMOutput,
+) -> None:
+    impact_run = session.get(AnalysisRun, prepared.impact_run_id)
+    verification = session.get(Verification, prepared.verification_id)
+    if impact_run is None or verification is None:
+        raise RuntimeError("Prepared analysis state is missing")
+    session.execute(delete(IndustryImpact).where(IndustryImpact.event_id == prepared.event_id))
+    session.execute(delete(CompanyImpact).where(CompanyImpact.event_id == prepared.event_id))
+    output = validated.output
+    for impact in output.industries:
+        session.add(
+            IndustryImpact(
+                event_id=prepared.event_id,
+                industry_id=impact.target_id,
+                relevance=impact.relevance,
+                direction=impact.direction,
+                strength=impact.strength,
+                horizon=impact.horizon,
+                mechanism=impact.mechanism,
+                explanation=impact.explanation,
+                confidence=impact.confidence,
+                evidence_ids=impact.evidence_ids,
+                analysis_run_id=impact_run.id,
+            )
+        )
+    for impact in output.companies:
+        session.add(
+            CompanyImpact(
+                event_id=prepared.event_id,
+                entity_id=impact.target_id,
+                role=impact.role or "subject",
+                relevance=impact.relevance,
+                direction=impact.direction,
+                strength=impact.strength,
+                horizon=impact.horizon,
+                mechanism=impact.mechanism,
+                explanation=impact.explanation,
+                confidence=impact.confidence,
+                evidence_ids=impact.evidence_ids,
+                analysis_run_id=impact_run.id,
+            )
+        )
+    verification.rationale = (
+        f"{verification.rationale} Model impact rationale: {output.verification_rationale}"
+    )
+    impact_run.prompt_version = "structured-impact-v1"
+    impact_run.status = "succeeded"
+    impact_run.cost = validated.estimated_cost
+    impact_run.output_json = {
+        "analysis": output.model_dump(mode="json"),
+        "attempts": validated.attempts,
+        "token_input": validated.token_input,
+        "token_output": validated.token_output,
+    }
+    session.flush()
+
+
+def _record_llm_failure(
+    session: Session,
+    *,
+    event_id: str,
+    input_hash: str,
+    settings: Settings,
+    idempotency_key: str,
+    status: str,
+    attempts: int,
+    error_code: str,
+    message: str,
+    token_input: int = 0,
+    token_output: int = 0,
+    estimated_cost: float = 0.0,
+) -> None:
+    job = session.scalar(select(PipelineJob).where(PipelineJob.idempotency_key == idempotency_key))
+    if job is None:
+        job = PipelineJob(job_type="llm-impact", idempotency_key=idempotency_key)
+        session.add(job)
+    job.status = status
+    job.attempts = attempts
+    job.last_error = f"{error_code}: {message}"[:1_000]
+    job.next_run_at = utcnow() + timedelta(minutes=5) if status == "retry_wait" else None
+    session.add(
+        AnalysisRun(
+            event_id=event_id,
+            stage="impact",
+            model=settings.llm_model,
+            prompt_version="structured-impact-v1",
+            schema_version="1",
+            input_hash=input_hash,
+            output_json={
+                "error_code": error_code,
+                "attempts": attempts,
+                "token_input": token_input,
+                "token_output": token_output,
+            },
+            status=status,
+            cost=estimated_cost,
+        )
+    )
+    session.commit()
+
+
+async def analyze_event_configured(
+    session: Session,
+    event_id: str,
+    settings: Settings,
+    *,
+    llm_port: LLMPort | None = None,
+    force_retry: bool = False,
+) -> Report:
+    if settings.llm_provider == "deterministic":
+        return analyze_event(session, event_id, settings)
+
+    input_hash = _analysis_input_hash(session, event_id, settings)
+    existing_report = session.scalar(
+        select(Report)
+        .where(Report.event_id == event_id, Report.input_hash == input_hash)
+        .order_by(Report.version.desc())
+    )
+    if existing_report is not None:
+        session.commit()
+        return existing_report
+
+    key_material = f"{event_id}:{input_hash}:{settings.llm_model}:structured-impact-v1"
+    idempotency_key = f"llm-impact:{hashlib.sha256(key_material.encode()).hexdigest()}"
+    job = session.scalar(select(PipelineJob).where(PipelineJob.idempotency_key == idempotency_key))
+    if job is not None and job.status == "dead" and not force_retry:
+        session.commit()
+        raise LLMContractError(
+            "LLM_JOB_DEAD",
+            job.last_error or "Previous model analysis exhausted its repair attempt",
+            attempts=job.attempts,
+        )
+    if job is None:
+        job = PipelineJob(job_type="llm-impact", idempotency_key=idempotency_key)
+        session.add(job)
+    job.status = "running"
+    job.last_error = None
+    job.next_run_at = None
+    session.commit()
+
+    prepared = _prepare_event_analysis(
+        session,
+        event_id,
+        settings,
+        input_hash=input_hash,
+    )
+    remaining_budget = _remaining_llm_budget(session, settings)
+    if remaining_budget <= 0:
+        session.rollback()
+        error = LLMContractError(
+            "BUDGET_EXCEEDED", "No per-event or daily LLM budget remains", attempts=0
+        )
+        _record_llm_failure(
+            session,
+            event_id=event_id,
+            input_hash=input_hash,
+            settings=settings,
+            idempotency_key=idempotency_key,
+            status="dead",
+            attempts=0,
+            error_code=error.code,
+            message=str(error),
+        )
+        raise error
+
+    port = llm_port or OpenAICompatibleLLM(
+        base_url=settings.llm_api_base_url,
+        api_key=settings.llm_api_key,
+        model=settings.llm_model,
+        timeout_seconds=settings.llm_timeout_seconds,
+        input_cost_per_million=settings.llm_input_cost_per_million,
+        output_cost_per_million=settings.llm_output_cost_per_million,
+    )
+    prompt_context = _llm_prompt_context(session, prepared)
+    try:
+        validated = await complete_model_analysis(
+            port,
+            messages=list(prompt_context.messages),
+            budget=LLMBudget(
+                max_output_tokens=settings.llm_max_output_tokens,
+                max_cost=remaining_budget,
+            ),
+            idempotency_key=idempotency_key,
+            allowed_evidence_ids=set(prompt_context.evidence_ids),
+            allowed_industry_ids=set(prompt_context.industry_ids),
+            allowed_company_ids=set(prompt_context.company_ids),
+        )
+    except LLMContractError as exc:
+        session.rollback()
+        _record_llm_failure(
+            session,
+            event_id=event_id,
+            input_hash=input_hash,
+            settings=settings,
+            idempotency_key=idempotency_key,
+            status="dead",
+            attempts=exc.attempts,
+            error_code=exc.code,
+            message=str(exc),
+            token_input=exc.token_input,
+            token_output=exc.token_output,
+            estimated_cost=exc.estimated_cost,
+        )
+        raise
+    except (LLMProviderError, httpx.HTTPError) as exc:
+        session.rollback()
+        _record_llm_failure(
+            session,
+            event_id=event_id,
+            input_hash=input_hash,
+            settings=settings,
+            idempotency_key=idempotency_key,
+            status="retry_wait",
+            attempts=max(job.attempts + 1, 1),
+            error_code="LLM_PROVIDER_ERROR",
+            message=str(exc),
+        )
+        raise
+
+    _apply_model_analysis(session, prepared, validated)
+    report = persist_report(
+        session,
+        event_id,
+        input_hash=prepared.input_hash,
+        model=settings.llm_model,
+        prompt_version="structured-impact-v1",
+    )
+    queue_report_notifications(session, report)
+    job.status = "succeeded"
+    job.attempts = validated.attempts
+    job.last_error = None
     session.commit()
     return report
 
@@ -653,6 +1134,7 @@ async def _fetch_source_url(
     settings: Settings,
     limit: int,
 ) -> tuple[list[Any], int]:
+    parser_name = "metadata" if source.content_policy == "metadata_only" else source.parser
     if source.method in {"rss", "atom"}:
         return await fetch_feed(
             url,
@@ -670,6 +1152,15 @@ async def _fetch_source_url(
             url,
             limit=limit,
             user_agent=settings.outbound_user_agent,
+            parser_name=parser_name,
+        )
+    if source.method == "website":
+        return await discover_site_entries(
+            url,
+            source_id=source.id,
+            allowed_source_ids=set(settings.newsplease_discovery_source_ids),
+            limit=limit,
+            user_agent=settings.outbound_user_agent,
         )
     raise ValueError(f"Method cannot be scheduled for collection: {source.method}")
 
@@ -682,20 +1173,90 @@ async def ingest_manual_url(
 ) -> dict[str, Any]:
     if source.is_demo:
         raise ValueError("Manual URLs cannot be attributed to a demo source")
+    parser_name = "metadata" if source.content_policy == "metadata_only" else source.parser
     entry, http_status = await fetch_html_entry(
         url,
         user_agent=settings.outbound_user_agent,
+        parser_name=parser_name,
     )
     article, event, created = ingest_article(session, source, asdict(entry))
-    report = analyze_event(session, event.id, settings)
+    try:
+        report = await analyze_event_configured(session, event.id, settings)
+        report_id: str | None = report.id
+        analysis_status = "succeeded"
+        analysis_error: str | None = None
+    except LLMContractError as exc:
+        report_id = None
+        analysis_status = "dead"
+        analysis_error = f"{exc.code}: {exc}"
+    except (LLMProviderError, httpx.HTTPError) as exc:
+        report_id = None
+        analysis_status = "retry_wait"
+        analysis_error = str(exc)
     return {
         "source_id": source.id,
         "article_id": article.id,
         "event_id": event.id,
-        "report_id": report.id,
+        "report_id": report_id,
+        "analysis_status": analysis_status,
+        "analysis_error": analysis_error,
         "created": created,
         "http_status": http_status,
     }
+
+
+async def _enrich_source_entry(
+    source: Source,
+    entry: Any,
+    settings: Settings,
+) -> Any:
+    if entry.body_excerpt or entry.parse_diagnostics.get("status") == "succeeded":
+        return entry
+    if source.content_policy == "metadata_only":
+        return replace(
+            entry,
+            parse_diagnostics={"extractor": "metadata", "status": "skipped"},
+        )
+    try:
+        parser_name = "metadata" if source.content_policy == "metadata_only" else source.parser
+        extracted, _http_status = await fetch_html_entry(
+            entry.url,
+            user_agent=settings.outbound_user_agent,
+            parser_name=parser_name,
+        )
+    except (httpx.HTTPError, UnsafeUrlError, ValueError) as exc:
+        return replace(
+            entry,
+            parse_diagnostics={
+                "extractor": "newspaper4k" if parser_name == "auto" else parser_name,
+                "status": "failed",
+                "error": str(exc)[:500],
+            },
+        )
+    return replace(
+        entry,
+        url=extracted.url,
+        summary=extracted.summary or entry.summary,
+        published_at=entry.published_at or extracted.published_at,
+        updated_at=entry.updated_at or extracted.updated_at,
+        author=entry.author or extracted.author,
+        body_excerpt=extracted.body_excerpt,
+        parse_diagnostics=extracted.parse_diagnostics,
+    )
+
+
+async def _enrich_source_entries(
+    source: Source,
+    entries: list[Any],
+    settings: Settings,
+) -> list[Any]:
+    semaphore = asyncio.Semaphore(4)
+
+    async def enrich(entry: Any) -> Any:
+        async with semaphore:
+            return await _enrich_source_entry(source, entry, settings)
+
+    return list(await asyncio.gather(*(enrich(entry) for entry in entries)))
 
 
 async def pull_sources(
@@ -724,6 +1285,7 @@ async def pull_sources(
                 settings,
                 max_items_per_source,
             )
+            entries = await _enrich_source_entries(source, entries, settings)
             for entry in entries:
                 payload = asdict(entry)
                 payload["url"] = payload.pop("url")
@@ -736,9 +1298,26 @@ async def pull_sources(
             source.consecutive_failures = 0
             source.last_error = None
             session.commit()
+            analysis_errors = []
             for event_id in touched_events:
-                analyze_event(session, event_id, settings)
-            results.append({"source_id": source.id, "status": "succeeded", "items": len(entries)})
+                try:
+                    await analyze_event_configured(session, event_id, settings)
+                except LLMContractError as exc:
+                    analysis_errors.append(
+                        {"event_id": event_id, "status": "dead", "error": f"{exc.code}: {exc}"}
+                    )
+                except (LLMProviderError, httpx.HTTPError) as exc:
+                    analysis_errors.append(
+                        {"event_id": event_id, "status": "retry_wait", "error": str(exc)}
+                    )
+            results.append(
+                {
+                    "source_id": source.id,
+                    "status": "succeeded",
+                    "items": len(entries),
+                    "analysis_errors": analysis_errors,
+                }
+            )
         except UnsafeUrlError as exc:
             session.rollback()
             run = session.get(SourceRun, run.id)
@@ -790,7 +1369,7 @@ async def test_source(
                 "note": "local demo source",
             }
             run.http_status = 200
-        elif source.method in {"rss", "atom", "api", "sitemap"}:
+        elif source.method in {"rss", "atom", "api", "sitemap", "website"}:
             entries, http_status = await _fetch_source_entries(source, settings, 3)
             result = {
                 "status": "ok",
@@ -802,9 +1381,11 @@ async def test_source(
             run.http_status = http_status
             run.item_count = len(entries)
         elif source.method == "manual":
+            parser_name = "metadata" if source.content_policy == "metadata_only" else source.parser
             entry, http_status = await fetch_html_entry(
                 source.entry_url,
                 user_agent=settings.outbound_user_agent,
+                parser_name=parser_name,
             )
             result = {
                 "status": "ok",
@@ -1127,8 +1708,28 @@ def submit_feedback(session: Session, payload: FeedbackCreate) -> Feedback:
     return feedback
 
 
-def reanalyze_event(session: Session, event_id: str, settings: Settings) -> Report:
-    return analyze_event(session, event_id, settings)
+async def reanalyze_event(session: Session, event_id: str, settings: Settings) -> Report:
+    return await analyze_event_configured(session, event_id, settings, force_retry=True)
+
+
+async def _analyze_mutated_events(
+    session: Session,
+    event_ids: list[str],
+    settings: Settings,
+) -> tuple[str, str | None]:
+    analysis_status = "succeeded"
+    errors: list[str] = []
+    for event_id in event_ids:
+        try:
+            await analyze_event_configured(session, event_id, settings)
+        except LLMContractError as exc:
+            analysis_status = "dead"
+            errors.append(f"{event_id}: {exc.code}")
+        except (LLMProviderError, httpx.HTTPError):
+            if analysis_status == "succeeded":
+                analysis_status = "retry_wait"
+            errors.append(f"{event_id}: LLM_PROVIDER_ERROR")
+    return analysis_status, "; ".join(errors) or None
 
 
 def set_event_lock(
@@ -1161,7 +1762,9 @@ def set_event_lock(
     return event
 
 
-def merge_events(session: Session, event_ids: list[str], reason: str, settings: Settings) -> str:
+async def merge_events(
+    session: Session, event_ids: list[str], reason: str, settings: Settings
+) -> EventMutationResult:
     target_id = event_ids[0]
     target = session.get(EventCluster, target_id)
     if target is None:
@@ -1194,17 +1797,21 @@ def merge_events(session: Session, event_ids: list[str], reason: str, settings: 
         )
     )
     session.commit()
-    analyze_event(session, target_id, settings)
-    return target_id
+    analysis_status, analysis_error = await _analyze_mutated_events(session, [target_id], settings)
+    return EventMutationResult(
+        event_id=target_id,
+        analysis_status=analysis_status,
+        analysis_error=analysis_error,
+    )
 
 
-def split_event(
+async def split_event(
     session: Session,
     event_id: str,
     article_ids: list[str],
     reason: str,
     settings: Settings,
-) -> str:
+) -> EventMutationResult:
     source_event = session.get(EventCluster, event_id)
     if source_event is None:
         raise LookupError(f"Event not found: {event_id}")
@@ -1245,9 +1852,16 @@ def split_event(
         )
     )
     session.commit()
-    analyze_event(session, event_id, settings)
-    analyze_event(session, new_event.id, settings)
-    return new_event.id
+    analysis_status, analysis_error = await _analyze_mutated_events(
+        session,
+        [event_id, new_event.id],
+        settings,
+    )
+    return EventMutationResult(
+        event_id=new_event.id,
+        analysis_status=analysis_status,
+        analysis_error=analysis_error,
+    )
 
 
 def system_summary(session: Session, settings: Settings) -> dict[str, Any]:

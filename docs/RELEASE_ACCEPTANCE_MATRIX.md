@@ -3,7 +3,7 @@
 Candidate date: 2026-08-21
 Baselines: NC-PRD-001 V1.0 and the matching development design V1.0
 Document state: both baselines are review drafts; product, technical, data/AI, and compliance approvers remain unassigned.
-Repository state: public `master` is merged at `54be2efd594e4592caa3eb40f7eb5d4192ca2161`; production execution has not been dispatched.
+Repository state: every candidate must pass branch and pull-request CI before merge; production execution has not been dispatched.
 
 ## Status Contract
 
@@ -12,17 +12,18 @@ Repository state: public `master` is merged at `54be2efd594e4592caa3eb40f7eb5d41
 - **OPEN**: a required implementation path is not present in the current candidate.
 - **GATED**: completion depends on production infrastructure, credentials, a reviewed catalogue, a benchmark, or an authorized human decision.
 
-Task-level PASS does not authorize merge, deployment, or production release. The release gate remains closed while any P0 item is OPEN or any required external approval is absent.
+Task-level PASS does not authorize merge, deployment, or production release. The release gate remains closed while required infrastructure, data evidence or external approval is absent.
 
 ## Evidence Index
 
 | Evidence | Location / command | Scope |
 |---|---|---|
-| E-API | `tests/integration/test_api.py` | UI/API security headers, reports, filters, source payload, event locking, audit, subscriptions |
+| E-API | `tests/integration/test_api.py` | UI/API security headers, reports, filters, source payload, event locking, audit, subscriptions and mutation responses |
 | E-PIPE | `tests/integration/test_demo_pipeline.py` | deterministic end-to-end ingestion, versions, evidence, impact and reports |
 | E-CLUSTER | `tests/integration/test_clustering.py` | event boundaries, data-domain separation and locked-cluster isolation |
 | E-FILTER | `tests/integration/test_event_filters.py` | SQL-level language/source/industry/company/direction/strength filters before limit |
-| E-SOURCE | `tests/unit/test_source_fallback.py`, `tests/unit/test_http_sources.py`, `tests/unit/test_rss.py` | RSS/API/Sitemap parsing, primary/fallback behavior, SSRF-safe failure |
+| E-SOURCE | `tests/unit/test_article_extraction.py`, `tests/unit/test_source_enrichment.py`, `tests/unit/test_site_discovery.py`, `tests/unit/test_robots_policy.py` and existing HTTP/RSS/fallback tests | Safe HTML extraction, parser policy, RSS/API/Sitemap enrichment, allow-listed discovery, robots and SSRF-safe failure |
+| E-LLM | `tests/unit/test_llm.py`, `tests/unit/test_llm_hardening.py`, `tests/integration/test_llm_pipeline.py`, `tests/integration/test_llm_prompt_bounds.py` | Strict schema, allow-lists, one repair, dead/retry states, bounded prompts, token/cost accounting and manual retry |
 | E-VERIFY | `tests/unit/test_verification.py`, `tests/unit/test_quality.py` | verification states, evidence conservatism and quality gates |
 | E-NOTIFY | `tests/integration/test_notifications.py` | email queue, semantic deduplication and retry behavior |
 | E-OPS | `tests/integration/test_backup_restore.py`, `tests/integration/test_migrations.py`, `tests/contracts/test_deployment_artifacts.py` | backup/restore, schema migration and deployment contracts |
@@ -37,7 +38,7 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | G-01 | Maintain 40-60 Chinese/English authoritative and official sources | PARTIAL | Catalogue size and fields are automated in E-PIPE; live pull reached 52/52 in the development run. Final country/agency catalogue and owners require product/compliance sign-off. |
 | G-02 | Aggregate duplicate reports into events with manual correction | PASS | E-CLUSTER, E-PIPE and E-API cover deduplication, source chains, merge/split and lock behavior. |
 | G-03 | Produce reviewable verification conclusions | PARTIAL | E-VERIFY and E-PIPE prove traceable rule-based conclusions. External evidence search and the human-reviewed verification benchmark are not complete. |
-| G-04 | Produce industry and company impact summaries | PARTIAL | E-PIPE and E-FILTER prove the contract and deterministic output. Top-3/Top-5 precision on 200 human-reviewed events is GATED. |
+| G-04 | Produce industry and company impact summaries | PARTIAL | E-PIPE, E-FILTER and E-LLM prove deterministic and strict external-model contracts. Top-3/Top-5 precision on 200 human-reviewed events is GATED. |
 | G-05 | Support browsing, filtering, notification, feedback and correction | PARTIAL | E-API and E-NOTIFY cover the local workflow; E-DEPLOY covers the protected release path. Live SMTP delivery and continuous trial operation are GATED. |
 
 ## P0 Functional Requirements
@@ -50,12 +51,12 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | FR-SRC-004 | PARTIAL | Last success, failures and parse/HTTP diagnostics exist; automated disable recommendations are not implemented. |
 | FR-ING-001 | PASS | Idempotent article/task behavior and retries are covered by E-PIPE and scheduler tests. |
 | FR-ING-002 | PASS | Article/version models retain required metadata, canonical/original URLs, language, timestamps and hashes; missing values remain explicit. |
-| FR-ING-003 | OPEN | Metadata/HTML parsing exists, but the configured Newspaper4k full-text path and source-level news-please discovery are not wired into collection. |
+| FR-ING-003 | PASS | Newspaper4k enriches RSS/API/Sitemap/manual HTML already fetched by the safe client; explicitly allow-listed news-please website discovery is same-origin and robots-aware. Extraction failure preserves metadata and diagnostics; E-SOURCE. |
 | FR-ING-004 | PASS | Version creation and changed-content traceability are covered by E-PIPE. |
 | FR-EVT-001 | PASS | URL/hash/similarity deduplication is covered by E-CLUSTER and normalization tests. |
 | FR-EVT-002 | PASS | Event membership, representative title, time and source counts are covered by E-PIPE and E-API. |
 | FR-EVT-003 | PASS | Syndication/origin grouping and separate article/source-chain counts are covered by E-PIPE. |
-| FR-EVT-004 | PASS | Merge/split reanalysis and lock isolation persist controlled actor/reason records; E-API and E-CLUSTER. |
+| FR-EVT-004 | PASS | Merge/split and lock isolation persist controlled actor/reason records; committed mutations return a separate succeeded/dead/retry_wait analysis status; E-API, E-CLUSTER and E-LLM. |
 | FR-VER-001 | PARTIAL | Structured current claims and quotes exist; opinion/prediction classification and the full maximum-three-claim contract need broader fixtures. |
 | FR-VER-002 | PARTIAL | Ingested evidence is linked with stance and source chain; a configurable external search adapter is not implemented. |
 | FR-VER-003 | PASS | Evidence quality, independence, conflicts, status and confidence explanations are covered by E-VERIFY. |
@@ -70,7 +71,7 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | FR-REP-003 | PASS | Keyword/industry/company thresholds, semantic deduplication and repeat-on-material-change are covered by E-NOTIFY. |
 | FR-REP-004 | PARTIAL | Email queue/retry is implemented; live SMTP is GATED. Feishu is not required if email is accepted as the one MVP channel. |
 | FR-ADM-001 | PASS | Version-linked feedback accepts target, verdict, reason and actor; E-API. |
-| FR-ADM-002 | PASS | Source writes, manual corrections, model/prompt versions, input hashes and analysis runs are traceable; E-API/E-PIPE. |
+| FR-ADM-002 | PASS | Source writes, manual corrections, model/prompt versions, input hashes, token/cost metadata and analysis runs are traceable; E-API/E-PIPE/E-LLM. |
 | FR-ADM-003 | PARTIAL | Environment validation, source schedule and budget settings exist; runtime UI/API changes for all thresholds/windows/retention are not implemented. |
 
 ## Non-Functional Requirements
@@ -82,13 +83,13 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | NFR-IDEM-001 | PASS | Article, task and notification idempotency are covered by E-PIPE/E-NOTIFY. |
 | NFR-SEC-001 | PASS | Production secret validation and redaction boundaries are covered by E-SEC; E-DEPLOY uses a protected environment, pinned host key and temporary registry credentials. Real secrets remain external. |
 | NFR-AUTH-001 | PASS | Bearer admin token protects management, analysis and feedback APIs; E-API. |
-| NFR-COMP-001 | PARTIAL | Source policy fields and safe HTTP controls exist; robots/terms/copyright decisions for the final catalogue require compliance review. |
+| NFR-COMP-001 | PARTIAL | Source policy fields, safe HTTP controls and robots-aware website discovery exist; terms/copyright/rate decisions for each final source still require compliance review. |
 | NFR-LIC-001 | PARTIAL | Service boundaries and license notes are documented; commercial distribution requires a fresh dependency/legal review. |
 | NFR-OBS-001 | PARTIAL | Source runs, audit logs, jobs and health are visible; production metrics/export and external alerting are not deployed. |
 | NFR-I18N-001 | PASS | UTC-aware data and Chinese/English source/article handling are covered by models and E-PIPE. |
 | NFR-A11Y-001 | PARTIAL | Semantic labels, focus styles and non-color status text exist; final keyboard/screen-reader review is required. |
 | NFR-BACKUP-001 | PARTIAL | Consistent SQLite backup/restore is covered by E-OPS and deployment fails closed unless an online pre-replacement backup succeeds; daily off-host scheduling and a timed production RTO drill are GATED. |
-| NFR-COST-001 | PARTIAL | Daily budget configuration and deterministic zero-provider mode exist; per-event external provider accounting/automatic degradation is not proven. |
+| NFR-COST-001 | PARTIAL | E-LLM proves finite price validation, per-event/daily enforcement and successful/failed-call accounting. Automatic provider-to-deterministic fallback remains intentionally absent and needs an approved product policy if required. |
 
 ## UAT Scenarios
 
@@ -102,7 +103,7 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | UAT-06 | PASS | Alias/ticker mapping and target roles are covered by alias tests and E-PIPE. |
 | UAT-07 | PASS | The cloud-compliance demo produces negative cloud impact and positive compliance-service opportunity separately. |
 | UAT-08 | PARTIAL | Timeout/MIME/size failures are safe and diagnostic in E-SOURCE; scheduler retry exhaustion/dead-state evidence needs a full scenario. |
-| UAT-09 | OPEN | There is no external LLM JSON-contract retry/degrade adapter in the current deterministic candidate. |
+| UAT-09 | PASS | E-LLM proves strict JSON Schema, one repair call, evidence/target ID allow-lists, dead state with no report after a second invalid output, retry_wait for provider failures and manual retry of dead jobs. |
 | UAT-10 | PASS | Semantic notification deduplication and material-change resend behavior are covered by E-NOTIFY. |
 
 ## Release Gates
@@ -110,9 +111,9 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 The repository can be treated as a local development candidate after the full verification gate passes. It is not a production release candidate until all of the following are resolved:
 
 1. Product, technical, data/AI and compliance approvers are assigned and both review-draft baselines are signed.
-2. FR-ING-003 and UAT-09 are implemented or explicitly removed from the approved MVP baseline.
-3. The official source and exchange/company catalogues are reviewed, including a real SEC contact address and per-source compliance policy.
-4. The fixed >=200-event human benchmark meets clustering and Top-N precision thresholds.
-5. The 50k-article performance gate, two-week trial, accessibility review and production recovery drill pass.
-6. The protected GitHub `production` environment is present and limited to `master`, but a production host, domain, DNS/TLS, container runtime, environment values, secrets, SMTP settings and monitoring destination must still be supplied.
-7. Merge authorization was exercised for PR #5. A release owner must separately approve the environment deployment after all remaining evidence is sealed; no production workflow run has been triggered.
+2. The official source and exchange/company catalogues are reviewed, including a real SEC contact address and per-source compliance policy.
+3. The fixed >=200-event human benchmark meets clustering and Top-N precision thresholds.
+4. The 50k-article performance gate, two-week trial, accessibility review and production recovery drill pass.
+5. The protected GitHub `production` environment is limited to `master`, but a production host, domain, DNS/TLS, container runtime, environment values, secrets, SMTP settings and monitoring destination must still be supplied.
+6. A release owner must separately approve the environment deployment after all remaining evidence is sealed; no production workflow run has been triggered.
+7. GitHub branch/PR CI and immutable container publication are required for every candidate before protected deployment.

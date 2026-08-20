@@ -86,6 +86,31 @@ python scripts/smoke_public.py "https://$DOMAIN"
 unset BASIC_AUTH_PASSWORD ADMIN_TOKEN SMTP_PASSWORD
 ~~~
 
+
+## Article Extraction, Website Discovery And External LLM
+
+The production image contains Newspaper4k and news-please. Both receive only HTML fetched by the application's SSRF-safe client. Keep a source at `content_policy=metadata_only` when article-page retrieval or excerpt retention is not approved.
+
+Website discovery is disabled by default. For every approved `method=website` source, set `parser=news-please`, use an excerpt-enabled content policy, and add only its exact source ID to the comma-separated `NEWS_PLEASE_DISCOVERY_SOURCE_IDS`. Record the terms/copyright reviewer and rate policy in the source compliance notes. The collector checks `robots.txt`, follows only same-origin HTML links and fails closed on robots retrieval errors other than a missing 404/410 file.
+
+Deterministic analysis remains the no-vendor default. To enable an OpenAI-compatible Chat Completions endpoint, configure:
+
+~~~bash
+LLM_PROVIDER=openai-compatible
+LLM_MODEL=your-structured-output-model
+LLM_API_BASE_URL=https://provider.example/v1
+LLM_API_KEY=replace-through-the-secret-store
+LLM_TIMEOUT_SECONDS=30
+LLM_MAX_OUTPUT_TOKENS=2000
+LLM_PER_EVENT_BUDGET=0.50
+DAILY_LLM_BUDGET=5.00
+LLM_INPUT_COST_PER_MILLION=0
+LLM_OUTPUT_COST_PER_MILLION=0
+~~~
+
+Set token prices to the provider's current per-million-token billing rates; zero means cost cannot be estimated and is unsuitable for a paid production provider. The validator rejects negative, NaN and infinite values. Strict JSON Schema output, evidence/target allow-lists and one repair call are mandatory. A second schema failure becomes a dead job with no valid report; provider/network errors enter `retry_wait`. Failed calls with valid usage metadata still consume the daily budget.
+
+Before enabling either feature in production, run the source test for each website source and one controlled model analysis covering success, repair success, dead-schema and provider-unavailable paths. Review the resulting source diagnostics, pipeline jobs, analysis runs, token counts and costs.
 ## Company Catalog
 
 Run catalog synchronization against the same `DATABASE_URL` used by the application. SEC requires a descriptive user agent with a real monitored email:
@@ -176,6 +201,8 @@ If a schema downgrade is required, stop the application and restore a verified p
 ## Release Gates
 
 - CI, dependency audit, migration check and container build are green.
+- Every website source is explicitly allow-listed, passes robots-aware source testing and has approved terms/copyright/rate notes.
+- When external LLM mode is enabled, a controlled production-provider smoke proves strict output, retry/dead states and billed token-cost accounting without exposing the API key.
 - Production environment validation passes and contains no placeholder secrets.
 - SEC and each required official exchange company catalog are imported and reviewed.
 - At least 95% of enabled live sources pass from the deployment network.

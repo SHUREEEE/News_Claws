@@ -32,6 +32,10 @@ def test_alembic_cli_honors_database_url(tmp_path: Path) -> None:
     assert database_path.is_file()
     with sqlite3.connect(database_path) as connection:
         assert connection.execute("SELECT version_num FROM alembic_version").fetchone() == (
-            "c31e8f2407ad",
+            "d542a38f7c10",
         )
+        source_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(source)").fetchall()
+        }
+        assert "parser" in source_columns
         assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)

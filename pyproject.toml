@@ -22,6 +22,7 @@ dependencies = [
 
 [project.optional-dependencies]
 extract = ["newspaper4k>=0.9,<1"]
+discover = ["news-please>=1.6,<2"]
 dev = [
   "httpx2>=2.12,<3",
   "pip-audit>=2.10,<3",

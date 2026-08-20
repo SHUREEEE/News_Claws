@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import re
+from math import isfinite
 from pathlib import Path
+from urllib.parse import urlsplit
 
 PLACEHOLDERS = {
     "",
@@ -129,6 +131,7 @@ def validate(values: dict[str, str]) -> list[str]:
         "SCHEDULER_MAX_ITEMS": (1, 100, "20"),
         "SMTP_PORT": (1, 65_535, "587"),
         "NOTIFICATION_BATCH_SIZE": (1, 500, "100"),
+        "LLM_MAX_OUTPUT_TOKENS": (1, 20_000, "2000"),
     }
     for key, (minimum, maximum, default) in integer_ranges.items():
         try:
@@ -140,10 +143,43 @@ def validate(values: dict[str, str]) -> list[str]:
 
     try:
         daily_budget = float(values.get("DAILY_LLM_BUDGET", "5.00"))
+        per_event_budget = float(values.get("LLM_PER_EVENT_BUDGET", "0.50"))
+        llm_timeout = float(values.get("LLM_TIMEOUT_SECONDS", "30"))
+        input_token_price = float(values.get("LLM_INPUT_COST_PER_MILLION", "0"))
+        output_token_price = float(values.get("LLM_OUTPUT_COST_PER_MILLION", "0"))
     except ValueError:
-        daily_budget = -1
-    if daily_budget < 0:
-        errors.append("DAILY_LLM_BUDGET must be a non-negative number")
+        daily_budget = per_event_budget = llm_timeout = -1
+        input_token_price = output_token_price = -1
+    if not isfinite(daily_budget) or daily_budget < 0:
+        errors.append("DAILY_LLM_BUDGET must be a finite non-negative number")
+    if not isfinite(per_event_budget) or per_event_budget < 0:
+        errors.append("LLM_PER_EVENT_BUDGET must be a finite non-negative number")
+    if not isfinite(llm_timeout) or not 1 <= llm_timeout <= 120:
+        errors.append("LLM_TIMEOUT_SECONDS must be between 1 and 120")
+    if not all(isfinite(value) for value in (input_token_price, output_token_price)) or (
+        input_token_price < 0 or output_token_price < 0
+    ):
+        errors.append("LLM token prices must be finite non-negative numbers")
+
+    llm_provider = values.get("LLM_PROVIDER", "deterministic")
+    if llm_provider not in {"deterministic", "openai-compatible"}:
+        errors.append("LLM_PROVIDER must be deterministic or openai-compatible")
+    elif llm_provider == "openai-compatible":
+        base_url = values.get("LLM_API_BASE_URL", "")
+        parts = urlsplit(base_url)
+        if (
+            parts.scheme not in {"http", "https"}
+            or not parts.hostname
+            or parts.username
+            or parts.password
+        ):
+            errors.append("LLM_API_BASE_URL must be an absolute HTTP(S) URL without credentials")
+        if not values.get("LLM_API_KEY", ""):
+            errors.append("LLM_API_KEY is required for openai-compatible mode")
+        if not values.get("LLM_MODEL", ""):
+            errors.append("LLM_MODEL is required for openai-compatible mode")
+        if daily_budget <= 0 or per_event_budget <= 0:
+            errors.append("Positive LLM budgets are required for openai-compatible mode")
 
     notifications_enabled = values.get("NOTIFICATION_ENABLED", "false").lower() in {
         "true",

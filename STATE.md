@@ -1,24 +1,24 @@
 # News Claws Delivery State
 
-- Release ID: `master-54be2ef`
+- Release ID: `candidate-ingestion-llm-20260821`
 - Current loop: `L1 project / L2A task`
 - Delivery path: `full`
-- Current phase: `07 Verification / production release gate`
+- Current phase: `07 Verification / GitHub integration`
 - Current work package: `WP-8 production release`
-- Task state: `blocked`
+- Task state: `in_progress`
 - Task owner: `Maker (Codex)`
 - Verification owner: `GitHub Actions plus independent local verification`
 - Budget owner: `Tech Lead (user acting as project approver)`
 - Evidence directory: `evidence/dev-local/` plus GitHub PR/Actions records
-- Last evidence: 103 tests passed with 89.06% domain branch coverage; PR #5 merged at `54be2ef`; push, pull-request and final master CI passed; the protected production environment exists but contains no variables or secrets
-- Next step: obtain the external release inputs and approvals listed below, then dispatch the protected workflow and execute public acceptance plus rollback verification
+- Last evidence: 146 tests passed with warnings as errors and 89.88% domain branch coverage; real Newspaper4k/news-please HTML smoke, dependency audit and isolated Alembic `d542a38f7c10 (head)` upgrade passed; current GitHub CI is pending
+- Next step: push the current candidate, merge only after branch/PR CI and container checks pass, then return to the external production release gate
 
 ## Authorization Envelope
 
 | Field | Frozen value |
 |---|---|
 | Goal | Deliver and deploy the smallest complete News Claws MVP from ingestion to evidence-backed event reports and subscriptions. |
-| Scope | Source registry, RSS/API/sitemap/HTML/manual ingestion, normalization/versioning, event clustering, claims/evidence, verification, industry/company impact, reports, company catalogs, subscriptions, notifications, feedback, health, security, deployment and rollback. |
+| Scope | Source registry, RSS/API/sitemap/HTML/manual/allow-listed website ingestion, normalization/versioning, event clustering, claims/evidence, verification, deterministic or strict external-model industry/company impact, reports, company catalogs, subscriptions, notifications, feedback, health, security, deployment and rollback. |
 | Non-scope | Auto-trading, paywall bypass, unrestricted crawling, probability-of-truth claims or price prediction. |
 | Objects | Files under this repository, local test databases, and the production target once supplied by the owner. |
 | Evidence | Automated tests, API responses, database state, report artifacts and Playwright screenshots. |
@@ -33,10 +33,11 @@
 - Decision: pending vendor, budget and compliance choices become runtime configuration and release gates; they do not block a local MVP.
 - Decision: the MVP remains useful without a configured LLM/search vendor by using deterministic analysis and conservative verification states.
 - Unknown: production source allow-list, commercial distribution model and final retention policy remain business decisions.
+- Decision: external LLM mode is opt-in, strict-schema and budget bounded; deterministic analysis remains the production-safe fallback configuration, not an automatic silent fallback after a malformed model result.
 
 ## Production Release Blockers
 
-- GitHub publication is complete: the public repository, merged `master`, successful CI and protected `production` environment are verified.
+- The public repository and protected `production` environment exist; every candidate still requires branch/PR/final-master CI and immutable container publication before deployment.
 - No real Linux host with Docker Engine/Compose and SSH access has been supplied.
 - No production domain, DNS control, TLS target or public endpoint exists.
 - The GitHub `production` environment intentionally has zero variables and zero secrets; host, SSH, application, gateway and GHCR credentials remain external.
@@ -68,3 +69,4 @@
 | 2026-08-20 | in_progress | passed | 90 tests, 89.06% domain branch coverage, static gates and desktop/mobile browser verification passed. | `tests/unit/test_source_fallback.py`, `tests/integration/test_event_filters.py`, run log |
 | 2026-08-21 | blocked | in_progress | GitHub credentials and repository authorization became available; the candidate was published, released and given a protected deployment workflow. | Releases `v0.1.0`/`v0.1.1`, PRs #1-#5, GitHub Actions |
 | 2026-08-21 | in_progress | blocked | Repository integration passed, but no real host/domain/credentials or required human and scale evidence exists; production execution was not fabricated. | `docs/RELEASE_ACCEPTANCE_MATRIX.md`, `docs/PRODUCTION_RUNBOOK.md`, GitHub `production` environment |
+| 2026-08-21 | blocked | in_progress | User authorized closing the remaining extraction and strict-LLM gaps before merge/deployment; local Checker evidence passed and GitHub integration is pending. | `evidence/dev-local/ingestion-llm-closeout-20260821.md` |
