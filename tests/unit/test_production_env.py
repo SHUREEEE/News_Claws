@@ -9,7 +9,8 @@ def valid_environment() -> dict[str, str]:
     return {
         "APP_ENV": "prod",
         "DATABASE_URL": "sqlite:////data/analysis.db",
-        "NEWS_CLAWS_IMAGE_TAG": "0123456789ab",
+        "NEWS_CLAWS_IMAGE": "ghcr.io/shureeee/news_claws",
+        "NEWS_CLAWS_IMAGE_TAG": "0123456789abcdef0123456789abcdef01234567",
         "ADMIN_TOKEN": "a-unique-production-token-that-is-long-enough",
         "DOMAIN": "news.example.org",
         "ALLOWED_HOSTS": "news.example.org,127.0.0.1,localhost",
@@ -78,9 +79,11 @@ def test_runtime_numeric_and_boolean_settings_are_preflighted() -> None:
 def test_production_storage_and_image_tag_are_immutable() -> None:
     values = valid_environment()
     values["DATABASE_URL"] = "sqlite:///./data/analysis.db"
-    values["NEWS_CLAWS_IMAGE_TAG"] = "latest"
+    values["NEWS_CLAWS_IMAGE"] = "news-claws-analysis-api"
+    values["NEWS_CLAWS_IMAGE_TAG"] = "0123456789ab"
     errors = validate(values)
     assert any("DATABASE_URL" in error for error in errors)
+    assert any("NEWS_CLAWS_IMAGE" in error for error in errors)
     assert any("NEWS_CLAWS_IMAGE_TAG" in error for error in errors)
 
 

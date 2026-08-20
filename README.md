@@ -84,14 +84,18 @@ application remains a single replica because SQLite is the MVP persistence bound
 
 ~~~bash
 cp .env.production.example .env.production
-# Set NEWS_CLAWS_IMAGE_TAG to the 7-40 character Git SHA being released.
+# Set NEWS_CLAWS_IMAGE_TAG to a full Git SHA published by the container workflow.
 # Put the Caddy bcrypt hash in single quotes so its dollar signs remain literal.
 # Replace every placeholder and point DOMAIN DNS at the host.
 python scripts/validate_production_env.py .env.production
 docker compose --env-file .env.production -f compose.prod.yaml config
-docker compose --env-file .env.production -f compose.prod.yaml build --pull
-docker compose --env-file .env.production -f compose.prod.yaml up -d
+docker compose --env-file .env.production -f compose.prod.yaml pull analysis-api
+docker compose --env-file .env.production -f compose.prod.yaml up -d --no-build
 ~~~
+
+The repository is private, so the host must authenticate to `ghcr.io` with a token limited to
+`read:packages` before pulling the image. The release workflow publishes an immutable full-SHA tag,
+BuildKit provenance and an SBOM; production must use the full-SHA tag, not a floating tag.
 
 After public DNS and TLS are active, run `scripts/smoke_public.py` as described in the production Runbook. It performs read-only checks for the gateway, security headers, application authentication and core UI/API routes.
 
