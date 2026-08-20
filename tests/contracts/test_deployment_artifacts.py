@@ -63,9 +63,14 @@ def test_release_workflow_publishes_sha_tagged_image_with_supply_chain_metadata(
     assert set(workflow["permissions"]) == {"contents", "packages"}
     assert any(step.get("uses") == "docker/login-action@v3" for step in steps)
     metadata = next(step for step in steps if step.get("id") == "metadata")
+    assert metadata["with"]["flavor"] == "latest=false"
     assert "type=raw,value=${{ github.sha }}" in metadata["with"]["tags"]
     push = next(step for step in steps if step.get("id") == "push")
     assert push["with"]["push"] is True
     assert push["with"]["platforms"] == "linux/amd64"
     assert push["with"]["provenance"] == "mode=max"
     assert push["with"]["sbom"] is True
+    digest_check = next(
+        step for step in steps if step.get("name") == "Verify immutable image digest"
+    )
+    assert digest_check["env"]["EXPECTED_DIGEST"] == "${{ steps.push.outputs.digest }}"
