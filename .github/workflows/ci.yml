@@ -25,6 +25,8 @@ jobs:
       - run: python -m pytest -W error --cov=news_claws.domain --cov-branch --cov-fail-under=85
       - run: python -m compileall -q apps/analysis_api
       - run: node --check apps/analysis_api/news_claws/static/app.js
+      - name: Prepare migration database directory
+        run: mkdir -p data
       - name: Verify migrations
         env:
           APP_ENV: test
