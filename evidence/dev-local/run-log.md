@@ -191,5 +191,22 @@ No root cause reached the three-return stop condition.
 ### Remaining Release Gates
 
 - Verified fact: local code and integration gates pass.
-- Unknown/GATED: public deployment still lacks a Git remote, Linux/Docker host, domain/DNS/TLS, production secrets, real SEC contact address, SMTP configuration, reviewed exchange catalogues, 50k performance evidence and a human-reviewed 200-event benchmark.
+- Unknown/GATED at that checkpoint: public deployment still lacked repository integration, a Linux/Docker host, domain/DNS/TLS, production secrets, a real SEC contact address, SMTP configuration, reviewed exchange catalogues, 50k performance evidence and a human-reviewed 200-event benchmark. The following 2026-08-21 entry supersedes the repository-integration portion only.
 - Decision: deterministic local analysis remains the approved no-vendor MVP path. Broader PRD clauses for Newspaper4k/news-please and external LLM invalid-JSON recovery remain explicit acceptance gaps, not fabricated successes.
+
+## 2026-08-21 - GitHub Integration And Deployment Governance
+
+- Evidence class: verified fact.
+- The repository is public at `SHUREEEE/News_Claws`; release `v0.1.1` and its SHA-tagged GHCR image were published and independently verified.
+- PR #5 merged the protected production deployment workflow into `master` at `54be2efd594e4592caa3eb40f7eb5d4192ca2161`.
+- Local verification passed 103 tests with warnings treated as errors and 89.06% domain branch coverage. Ruff format/lint, compileall, JavaScript syntax, YAML parsing, migrations and dependency audit passed.
+- GitHub branch-push, pull-request and final `master` CI passed. Ubuntu CI additionally passed Bash syntax, Docker image build and non-root data/backup mount checks.
+- The GitHub `production` environment was created with required reviewer `SHUREEEE`, a custom branch policy allowing only `master`, zero variables and zero secrets.
+- The workflow validates a full lowercase master SHA, resolves and rechecks the OCI digest, pins SSH host verification, validates the complete production environment, requires an online SQLite backup before replacement, waits for readiness, runs public HTTPS smoke and only performs automatic rollback after explicit schema-compatibility approval.
+- The two Word baselines, all tables, the release matrix and Loop Engineering V2.2 visible workflow were re-read for a completion audit. LibreOffice remains unavailable, so DOCX visual re-rendering could not be repeated; structured DOCX parsing succeeded.
+
+### Current Release Decision
+
+- Resolved: Git remote, repository publication, PR integration, immutable container publication, protected deployment workflow and GitHub production environment.
+- Still GATED: FR-ING-003 and UAT-09 baseline decisions, real host/domain/DNS/TLS, production environment values and credentials, real contact identity, SMTP/monitoring, reviewed source/company catalogues, 200-event human benchmark, 50k performance run, two-week trial, timed recovery drill, accessibility review and four-role sign-off.
+- Decision: no production deployment was dispatched and no missing input was fabricated. WP-8 remains `blocked` until the release owner supplies and approves the external inputs.

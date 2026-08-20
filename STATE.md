@@ -1,17 +1,17 @@
 # News Claws Delivery State
 
-- Release ID: `dev-local`
+- Release ID: `master-54be2ef`
 - Current loop: `L1 project / L2A task`
 - Delivery path: `full`
 - Current phase: `07 Verification / production release gate`
 - Current work package: `WP-8 production release`
 - Task state: `blocked`
 - Task owner: `Maker (Codex)`
-- Verification owner: `independent verification pass completed`
+- Verification owner: `GitHub Actions plus independent local verification`
 - Budget owner: `Tech Lead (user acting as project approver)`
-- Evidence directory: `evidence/dev-local/`
-- Last evidence: 90 tests and the full local gate passed with 89.06% domain branch coverage; expanded filters, safe source fallback and event lock/unlock passed API and real-browser verification; the human benchmark remains absent
-- Next step: seal and locally merge the verified candidate, then obtain the external release inputs listed below before public deployment
+- Evidence directory: `evidence/dev-local/` plus GitHub PR/Actions records
+- Last evidence: 103 tests passed with 89.06% domain branch coverage; PR #5 merged at `54be2ef`; push, pull-request and final master CI passed; the protected production environment exists but contains no variables or secrets
+- Next step: obtain the external release inputs and approvals listed below, then dispatch the protected workflow and execute public acceptance plus rollback verification
 
 ## Authorization Envelope
 
@@ -36,14 +36,15 @@
 
 ## Production Release Blockers
 
-- No Git remote exists, so the verified revision cannot be pushed or merged remotely.
-- No Linux host with Docker Engine/Compose has been supplied; Docker is not installed locally.
+- GitHub publication is complete: the public repository, merged `master`, successful CI and protected `production` environment are verified.
+- No real Linux host with Docker Engine/Compose and SSH access has been supplied.
 - No production domain, DNS control, TLS target or public endpoint exists.
-- No production administrator secret, Caddy basic-auth hash or other deployment secrets exist.
+- The GitHub `production` environment intentionally has zero variables and zero secrets; host, SSH, application, gateway and GHCR credentials remain external.
 - No real monitored contact email is available for SEC-compliant synchronization.
-- No SMTP service, credentials or verified sender is available for real notification delivery.
+- No SMTP service, credentials or verified sender is available for real notification delivery; notifications can remain disabled only if the release owner approves that MVP choice.
 - No reviewed official SSE/SZSE/HKEX exports have been supplied.
-- No human-labeled benchmark of at least 200 real, non-demo events exists.
+- No human-labeled benchmark of at least 200 real, non-demo events, 50k performance run, two-week availability trial, timed recovery drill or final accessibility review exists.
+- Product, technical, data/AI and compliance approvers are still unassigned in both review-draft baselines.
 
 ## State History
 
@@ -65,3 +66,5 @@
 | 2026-08-20 | in_progress | passed | Two minimal clustering repairs passed focused tests and a fresh 260-article replay. | `tests/integration/test_clustering.py`, clustering audit |
 | 2026-08-20 | ready | in_progress | Word-baseline audit opened a bounded specification-completion attempt for missing source fallback, SQL filters and event locking. | `docs/RELEASE_ACCEPTANCE_MATRIX.md` |
 | 2026-08-20 | in_progress | passed | 90 tests, 89.06% domain branch coverage, static gates and desktop/mobile browser verification passed. | `tests/unit/test_source_fallback.py`, `tests/integration/test_event_filters.py`, run log |
+| 2026-08-21 | blocked | in_progress | GitHub credentials and repository authorization became available; the candidate was published, released and given a protected deployment workflow. | Releases `v0.1.0`/`v0.1.1`, PRs #1-#5, GitHub Actions |
+| 2026-08-21 | in_progress | blocked | Repository integration passed, but no real host/domain/credentials or required human and scale evidence exists; production execution was not fabricated. | `docs/RELEASE_ACCEPTANCE_MATRIX.md`, `docs/PRODUCTION_RUNBOOK.md`, GitHub `production` environment |
