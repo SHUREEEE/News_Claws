@@ -4,6 +4,7 @@ from news_claws.domain.normalization import (
     content_hash,
     jaccard_similarity,
     normalize_text,
+    text_tokens,
 )
 
 
@@ -36,3 +37,7 @@ def test_multilingual_title_similarity_separates_topics() -> None:
     unrelated = jaccard_similarity("海上风电扩容方案", "云服务数据出境审查")
     assert close > 0.45
     assert unrelated < 0.1
+
+
+def test_title_tokens_keep_standalone_numbers() -> None:
+    assert "6" in text_tokens("EBA E-mail alert 6 August, 2026")

@@ -9,7 +9,22 @@ PLACEHOLDERS = {
     "news.example.com",
     "replace-with-at-least-32-random-characters",
     "replace-with-caddy-bcrypt-hash",
+    "replace-with-immutable-git-sha",
 }
+BOOLEAN_VALUES = {"true", "1", "yes", "on", "false", "0", "no", "off"}
+
+
+def _env_value(raw_value: str, line_number: int) -> str:
+    value = raw_value.strip()
+    if not value:
+        return value
+    if value[0] in {"'", '"'}:
+        if len(value) < 2 or value[-1] != value[0]:
+            raise ValueError(f"Invalid quoted value on environment line {line_number}")
+        return value[1:-1]
+    if value[-1] in {"'", '"'}:
+        raise ValueError(f"Invalid quoted value on environment line {line_number}")
+    return value
 
 
 def parse_env(path: Path) -> dict[str, str]:
@@ -21,7 +36,12 @@ def parse_env(path: Path) -> dict[str, str]:
         if "=" not in line:
             raise ValueError(f"Invalid environment line {line_number}")
         key, value = line.split("=", 1)
-        values[key.strip()] = value.strip()
+        key = key.strip()
+        if not key:
+            raise ValueError(f"Environment key is empty on line {line_number}")
+        if key in values:
+            raise ValueError(f"Duplicate environment key {key} on line {line_number}")
+        values[key] = _env_value(value, line_number)
     return values
 
 
@@ -29,6 +49,8 @@ def validate(values: dict[str, str]) -> list[str]:
     errors: list[str] = []
     required = {
         "APP_ENV",
+        "DATABASE_URL",
+        "NEWS_CLAWS_IMAGE_TAG",
         "ADMIN_TOKEN",
         "DOMAIN",
         "ALLOWED_HOSTS",
@@ -39,6 +61,14 @@ def validate(values: dict[str, str]) -> list[str]:
     }
     for key in sorted(required - values.keys()):
         errors.append(f"{key} is required")
+
+    database_url = values.get("DATABASE_URL", "")
+    if not re.fullmatch(r"sqlite:////data/[A-Za-z0-9._-]+\.db", database_url):
+        errors.append("DATABASE_URL must use a SQLite database file under /data")
+
+    image_tag = values.get("NEWS_CLAWS_IMAGE_TAG", "").lower()
+    if image_tag in PLACEHOLDERS or not re.fullmatch(r"[0-9a-f]{7,40}", image_tag):
+        errors.append("NEWS_CLAWS_IMAGE_TAG must be an immutable 7-40 character Git SHA")
 
     domain = values.get("DOMAIN", "").lower()
     if domain in PLACEHOLDERS or not re.fullmatch(
@@ -54,21 +84,62 @@ def validate(values: dict[str, str]) -> list[str]:
         errors.append("APP_ENV must be prod")
     if values.get("SEED_DEMO", "").lower() not in {"false", "0", "no", "off"}:
         errors.append("SEED_DEMO must be false")
-    if domain and domain not in {
-        item.strip().lower() for item in values.get("ALLOWED_HOSTS", "").split(",")
-    }:
+    allowed_hosts = {
+        item.strip().lower() for item in values.get("ALLOWED_HOSTS", "").split(",") if item.strip()
+    }
+    if domain and domain not in allowed_hosts:
         errors.append("ALLOWED_HOSTS must include DOMAIN")
+    if "*" in allowed_hosts or any(item.startswith("*.") for item in allowed_hosts):
+        errors.append("ALLOWED_HOSTS must not contain wildcards in production")
 
     basic_user = values.get("BASIC_AUTH_USER", "")
-    if basic_user in PLACEHOLDERS or len(basic_user) < 3:
+    if basic_user in PLACEHOLDERS or not re.fullmatch(r"[A-Za-z0-9._-]{3,64}", basic_user):
         errors.append("BASIC_AUTH_USER must be configured")
     basic_hash = values.get("BASIC_AUTH_HASH", "")
-    if basic_hash in PLACEHOLDERS or not basic_hash.startswith(("$2a$", "$2b$", "$2y$")):
+    bcrypt_match = re.fullmatch(r"\$2[aby]\$(\d{2})\$[./A-Za-z0-9]{53}", basic_hash)
+    if (
+        basic_hash in PLACEHOLDERS
+        or bcrypt_match is None
+        or not 4 <= int(bcrypt_match.group(1)) <= 31
+    ):
         errors.append("BASIC_AUTH_HASH must be a Caddy-compatible bcrypt hash")
 
     user_agent = values.get("OUTBOUND_USER_AGENT", "")
     if len(user_agent) < 20 or "@" not in user_agent or "example" in user_agent.lower():
         errors.append("OUTBOUND_USER_AGENT must contain a real contact email")
+    for key in (
+        "TRENDRADAR_ENABLED",
+        "SEED_DEMO",
+        "SCHEDULER_ENABLED",
+        "NOTIFICATION_ENABLED",
+        "SMTP_STARTTLS",
+    ):
+        if key in values and values[key].lower() not in BOOLEAN_VALUES:
+            errors.append(f"{key} must be a boolean value")
+
+    integer_ranges = {
+        "DATA_RETENTION_DAYS": (1, 36_500, "365"),
+        "MAX_REQUEST_BYTES": (1_024, 10_485_760, "1048576"),
+        "SCHEDULER_INTERVAL_SECONDS": (60, 86_400, "900"),
+        "SCHEDULER_MAX_ITEMS": (1, 100, "20"),
+        "SMTP_PORT": (1, 65_535, "587"),
+        "NOTIFICATION_BATCH_SIZE": (1, 500, "100"),
+    }
+    for key, (minimum, maximum, default) in integer_ranges.items():
+        try:
+            number = int(values.get(key, default))
+        except ValueError:
+            number = minimum - 1
+        if not minimum <= number <= maximum:
+            errors.append(f"{key} must be between {minimum} and {maximum}")
+
+    try:
+        daily_budget = float(values.get("DAILY_LLM_BUDGET", "5.00"))
+    except ValueError:
+        daily_budget = -1
+    if daily_budget < 0:
+        errors.append("DAILY_LLM_BUDGET must be a non-negative number")
+
     notifications_enabled = values.get("NOTIFICATION_ENABLED", "false").lower() in {
         "true",
         "1",
@@ -82,12 +153,6 @@ def validate(values: dict[str, str]) -> list[str]:
             errors.append("SMTP_FROM must be a valid sender when notifications are enabled")
         if values.get("SMTP_USERNAME") and not values.get("SMTP_PASSWORD"):
             errors.append("SMTP_PASSWORD is required when SMTP_USERNAME is configured")
-        try:
-            smtp_port = int(values.get("SMTP_PORT", "587"))
-        except ValueError:
-            smtp_port = 0
-        if not 1 <= smtp_port <= 65_535:
-            errors.append("SMTP_PORT must be between 1 and 65535")
     return errors
 
 

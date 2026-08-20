@@ -15,7 +15,8 @@ RUN python -m pip install --no-cache-dir "pip>=26.1.2,<27" \
 COPY alembic.ini ./
 COPY config ./config
 COPY scripts ./scripts
-RUN mkdir -p /data && chown -R newsclaws:newsclaws /app /data
+RUN mkdir -p /data /backups \
+    && chown -R newsclaws:newsclaws /app /data /backups
 
 USER newsclaws
 EXPOSE 8000

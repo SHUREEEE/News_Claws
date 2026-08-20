@@ -20,7 +20,10 @@ application replica and SQLite WAL. Do not scale the application service horizon
 ~~~bash
 cp .env.production.example .env.production
 docker run --rm caddy:2.10.2-alpine caddy hash-password --plaintext 'replace-this-password'
-# Put the resulting hash in BASIC_AUTH_HASH and replace every placeholder.
+# Set NEWS_CLAWS_IMAGE_TAG to: git rev-parse --verify HEAD
+# Put the hash in BASIC_AUTH_HASH inside single quotes: BASIC_AUTH_HASH='$2a$...'
+# Single quotes prevent Compose from expanding the hash's dollar signs.
+# Replace every remaining placeholder.
 python scripts/validate_production_env.py .env.production
 docker compose --env-file .env.production -f compose.prod.yaml config
 docker compose --env-file .env.production -f compose.prod.yaml build --pull
@@ -32,6 +35,17 @@ curl --fail --silent --show-error https://YOUR_DOMAIN/health/live
 Caddy obtains and renews TLS certificates automatically. The public liveness endpoint exposes
 only service status. Every UI and API route requires Caddy basic authentication; API mutations
 also require the application administrator token.
+
+After DNS and TLS are active, keep the plaintext Basic Auth password out of `.env.production` and export it only for the read-only public smoke:
+
+~~~bash
+export BASIC_AUTH_PASSWORD='the-plaintext-password-used-to-create-the-hash'
+set -a
+. ./.env.production
+set +a
+python scripts/smoke_public.py "https://$DOMAIN"
+unset BASIC_AUTH_PASSWORD ADMIN_TOKEN SMTP_PASSWORD
+~~~
 
 ## Company Catalog
 
@@ -93,22 +107,30 @@ host is not a disaster-recovery backup.
 
 ## Upgrade
 
+Record the current `NEWS_CLAWS_IMAGE_TAG` and take an off-host backup. Check out the exact revision to deploy, set `NEWS_CLAWS_IMAGE_TAG` to that full or abbreviated Git SHA in `.env.production`, then run:
+
 ~~~bash
+python scripts/validate_production_env.py .env.production
 docker compose --env-file .env.production -f compose.prod.yaml build --pull
 docker compose --env-file .env.production -f compose.prod.yaml up -d
 docker compose --env-file .env.production -f compose.prod.yaml ps
 curl --fail --silent --show-error https://YOUR_DOMAIN/health/live
 ~~~
 
-The application runs Alembic migrations before becoming ready. Take an off-host backup before
-each upgrade.
+The application runs Alembic migrations before becoming ready. The image tag makes the built release addressable for rollback; do not use `latest` or reuse a previous SHA tag.
 
 ## Rollback
 
-Re-deploy the previously verified image or Git revision. If a schema downgrade is required,
-stop the application and restore a verified pre-upgrade backup to a new database file. Never
-overwrite the only copy of the current database. Validate PRAGMA integrity_check, start the
-previous release, then perform liveness, authentication, event-detail and report smoke tests.
+If the current schema remains compatible, restore the previous `NEWS_CLAWS_IMAGE_TAG` in `.env.production` and run:
+
+~~~bash
+python scripts/validate_production_env.py .env.production
+docker compose --env-file .env.production -f compose.prod.yaml up -d --no-build
+docker compose --env-file .env.production -f compose.prod.yaml ps
+curl --fail --silent --show-error https://YOUR_DOMAIN/health/live
+~~~
+
+If a schema downgrade is required, stop the application and restore a verified pre-upgrade backup to a new database file. Never overwrite the only copy of the current database. Validate `PRAGMA integrity_check`, start the previous image, then perform liveness, authentication, event-detail and report smoke tests.
 
 ## Release Gates
 
