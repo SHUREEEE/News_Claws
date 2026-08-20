@@ -114,7 +114,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(
     title="News Claws Analysis API",
-    version="0.1.0",
+    version="0.1.1",
     description="Evidence-first news clustering, verification and impact analysis",
     lifespan=lifespan,
 )
