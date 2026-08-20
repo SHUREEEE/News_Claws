@@ -37,12 +37,12 @@ Single working tree and single active implementation session are used for this l
 ## Verification Summary
 
 - Static quality: Ruff format and lint pass after the clustering and release-artifact repairs; Python and JavaScript syntax checks pass.
-- Automated verification: 83 tests pass with warnings treated as errors; domain branch coverage is 89.06% against the 85% gate.
+- Automated verification: 90 tests pass with warnings treated as errors; domain branch coverage is 89.06% against the 85% gate.
 - Runtime verification: Alembic reached `c31e8f2407ad (head)`; production-mode local health, authentication, subscriptions, disabled notification dispatch and audit logging passed against an isolated SQLite database.
 - Live-source verification: a fresh controlled replay eventually passed all 52 enabled non-demo sources and ingested 260 current articles; two transient failures passed on one bounded retry.
 - Clustering verification: the repaired replay produced 254 events and 5 multi-article events. Every multi-article event had an identical title across independent configured sources; known unrelated official-news and dated-alert cases remained separate. SQLite integrity passed.
-- Browser verification: `/subscriptions` passed at 1440x900 and 390x844 with no horizontal overflow or clipped controls; company search, create and disable flows passed; console errors and warnings are zero.
-- Release-quality verification: demo and unknown events are rejected. The gate is correctly blocked because no real 200-event human benchmark exists.
+- Browser verification: `/subscriptions` and the expanded event dashboard passed desktop/mobile checks. Industry filtering and event lock/unlock completed through the real UI; the 390x844 dashboard has no horizontal overflow or overlapping interactive controls.
+- Release-quality verification: demo and unknown events are rejected. `docs/RELEASE_ACCEPTANCE_MATRIX.md` maps all 5 goals, 28 P0 requirements, 12 NFRs and 10 UAT scenarios to evidence or an explicit gate. The production gate remains closed because the baselines are review drafts and no real 200-event human benchmark exists.
 - Release-artifact verification: production services receive only their required secrets, images use immutable Git SHA tags, container data/backup mountpoints are non-root writable, and a read-only public HTTPS smoke command covers gateway and application authentication.
 
 ## Release Gate

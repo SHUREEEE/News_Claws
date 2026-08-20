@@ -292,6 +292,33 @@
     }
   });
 
+  document.querySelector("[data-event-lock]")?.addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const currentlyLocked = button.dataset.locked === "true";
+    const reason = window.prompt(currentlyLocked ? "请输入解除锁定原因" : "请输入锁定原因");
+    if (reason === null) return;
+    if (reason.trim().length < 3) {
+      showToast("原因至少需要 3 个字符", true);
+      return;
+    }
+    button.disabled = true;
+    try {
+      await protectedFetch(`/api/v1/events/${button.dataset.eventLock}/lock`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          locked: !currentlyLocked,
+          reason: reason.trim(),
+          actor: "local-analyst",
+        }),
+      });
+      showToast(currentlyLocked ? "事件已解除锁定" : "事件已锁定");
+      window.setTimeout(() => window.location.reload(), 500);
+    } catch (error) {
+      showToast(error.message, true);
+      button.disabled = false;
+    }
+  });
+
   document.querySelector("[data-feedback-form]")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const form = event.currentTarget;

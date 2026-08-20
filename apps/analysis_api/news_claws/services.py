@@ -630,21 +630,44 @@ async def _fetch_source_entries(
     settings: Settings,
     limit: int,
 ) -> tuple[list[Any], int]:
+    try:
+        return await _fetch_source_url(source, source.entry_url, settings, limit)
+    except UnsafeUrlError:
+        raise
+    except (httpx.HTTPError, ValueError) as primary_error:
+        if not source.fallback_url:
+            raise
+        try:
+            return await _fetch_source_url(source, source.fallback_url, settings, limit)
+        except UnsafeUrlError:
+            raise
+        except (httpx.HTTPError, ValueError) as fallback_error:
+            raise ValueError(
+                f"Primary entry failed: {primary_error}; fallback entry failed: {fallback_error}"
+            ) from fallback_error
+
+
+async def _fetch_source_url(
+    source: Source,
+    url: str,
+    settings: Settings,
+    limit: int,
+) -> tuple[list[Any], int]:
     if source.method in {"rss", "atom"}:
         return await fetch_feed(
-            source.entry_url,
+            url,
             limit=limit,
             user_agent=settings.outbound_user_agent,
         )
     if source.method == "api":
         return await fetch_api_entries(
-            source.entry_url,
+            url,
             limit=limit,
             user_agent=settings.outbound_user_agent,
         )
     if source.method == "sitemap":
         return await fetch_sitemap_entries(
-            source.entry_url,
+            url,
             limit=limit,
             user_agent=settings.outbound_user_agent,
         )
@@ -826,14 +849,83 @@ def list_events(
     query: str | None = None,
     verification_status: str | None = None,
     region: str | None = None,
+    language: str | None = None,
+    source_id: str | None = None,
+    industry_id: str | None = None,
+    company_id: str | None = None,
+    direction: str | None = None,
+    strength: str | None = None,
     demo: bool | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    events = select(EventCluster).order_by(EventCluster.last_seen.desc()).limit(limit)
+    events = select(EventCluster).where(EventCluster.state == "active")
     if query:
         events = events.where(EventCluster.title.ilike(f"%{query}%"))
     if demo is not None:
         events = events.where(EventCluster.is_demo.is_(demo))
+    source_filters = []
+    if region:
+        source_filters.append(Source.region == region)
+    if language:
+        source_filters.append(Article.language == language)
+    if source_id:
+        source_filters.append(Article.source_id == source_id)
+    if source_filters:
+        source_event_ids = (
+            select(EventArticle.event_id)
+            .join(Article, Article.id == EventArticle.article_id)
+            .join(Source, Source.id == Article.source_id)
+            .where(*source_filters)
+        )
+        events = events.where(EventCluster.id.in_(source_event_ids))
+    if verification_status:
+        latest_verification_status = (
+            select(Verification.status)
+            .join(Claim, Claim.id == Verification.claim_id)
+            .where(
+                Claim.event_id == EventCluster.id,
+                Claim.is_current.is_(True),
+            )
+            .order_by(Verification.created_at.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        events = events.where(latest_verification_status == verification_status)
+
+    impact_filters = []
+    if direction:
+        impact_filters.append(("direction", direction))
+    if strength:
+        impact_filters.append(("strength", strength))
+    if industry_id:
+        conditions = [IndustryImpact.industry_id == industry_id]
+        conditions.extend(
+            getattr(IndustryImpact, field) == value for field, value in impact_filters
+        )
+        events = events.where(
+            EventCluster.id.in_(select(IndustryImpact.event_id).where(*conditions))
+        )
+    if company_id:
+        conditions = [CompanyImpact.entity_id == company_id]
+        conditions.extend(getattr(CompanyImpact, field) == value for field, value in impact_filters)
+        events = events.where(
+            EventCluster.id.in_(select(CompanyImpact.event_id).where(*conditions))
+        )
+    if impact_filters and not industry_id and not company_id:
+        industry_conditions = [
+            getattr(IndustryImpact, field) == value for field, value in impact_filters
+        ]
+        company_conditions = [
+            getattr(CompanyImpact, field) == value for field, value in impact_filters
+        ]
+        impact_event_ids = (
+            select(IndustryImpact.event_id)
+            .where(*industry_conditions)
+            .union(select(CompanyImpact.event_id).where(*company_conditions))
+        )
+        events = events.where(EventCluster.id.in_(impact_event_ids))
+    events = events.order_by(EventCluster.last_seen.desc()).limit(limit)
+
     rows: list[dict[str, Any]] = []
     for event in session.scalars(events):
         article_count = int(
@@ -869,11 +961,7 @@ def list_events(
             if claim
             else None
         )
-        if verification_status and (
-            verification is None or verification.status != verification_status
-        ):
-            continue
-        regions = list(
+        regions = sorted(
             session.scalars(
                 select(Source.region)
                 .join(Article, Article.source_id == Source.id)
@@ -881,8 +969,12 @@ def list_events(
                 .distinct()
             )
         )
-        if region and region not in regions:
-            continue
+        languages = sorted(
+            session.scalars(select(Article.language).where(Article.id.in_(article_ids)).distinct())
+        )
+        source_ids = sorted(
+            session.scalars(select(Article.source_id).where(Article.id.in_(article_ids)).distinct())
+        )
         latest_report = session.scalar(
             select(Report).where(Report.event_id == event.id).order_by(Report.version.desc())
         )
@@ -917,6 +1009,8 @@ def list_events(
                 "verification_status": verification.status if verification else "pending",
                 "verification_confidence": verification.confidence if verification else "low",
                 "regions": regions,
+                "languages": languages,
+                "source_ids": source_ids,
                 "max_relevance": max_relevance,
                 "report_id": latest_report.id if latest_report else None,
             }
@@ -1035,6 +1129,36 @@ def submit_feedback(session: Session, payload: FeedbackCreate) -> Feedback:
 
 def reanalyze_event(session: Session, event_id: str, settings: Settings) -> Report:
     return analyze_event(session, event_id, settings)
+
+
+def set_event_lock(
+    session: Session,
+    event_id: str,
+    *,
+    locked: bool,
+    reason: str,
+    actor: str,
+) -> EventCluster:
+    event = session.get(EventCluster, event_id)
+    if event is None:
+        raise LookupError(f"Event not found: {event_id}")
+    if event.state != "active":
+        raise ValueError("Only active events can be locked or unlocked")
+    if event.locked == locked:
+        return event
+    event.locked = locked
+    session.add(
+        Feedback(
+            target_type="cluster",
+            target_id=event_id,
+            verdict="correct",
+            reason=f"{'Locked' if locked else 'Unlocked'} event: {reason}",
+            actor=actor,
+            analysis_version="manual-lock-v1",
+        )
+    )
+    session.commit()
+    return event
 
 
 def merge_events(session: Session, event_ids: list[str], reason: str, settings: Settings) -> str:
