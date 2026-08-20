@@ -2,7 +2,7 @@ from pathlib import Path
 
 from news_claws.database import get_engine, session_factory
 from news_claws.models import Base, EventCluster, Source
-from news_claws.services import ingest_article
+from news_claws.services import ingest_article, set_event_lock
 from sqlalchemy import func, select
 
 
@@ -160,3 +160,35 @@ def test_live_and_demo_articles_never_share_a_cluster(tmp_path: Path) -> None:
         assert demo_event.id != live_event.id
         assert demo_event.is_demo is True
         assert live_event.is_demo is False
+
+
+def test_locked_event_is_excluded_from_automatic_clustering(tmp_path: Path) -> None:
+    database_url = f"sqlite:///{(tmp_path / 'locked-cluster.db').as_posix()}"
+    Base.metadata.create_all(get_engine(database_url))
+    with session_factory(database_url)() as session:
+        first_source = _source("first_official")
+        second_source = _source("second_official")
+        session.add_all([first_source, second_source])
+        session.flush()
+
+        _article, first_event, _created = ingest_article(
+            session,
+            first_source,
+            _payload("first-release", "Government approves offshore wind expansion plan"),
+        )
+        set_event_lock(
+            session,
+            first_event.id,
+            locked=True,
+            reason="analyst review in progress",
+            actor="test-reviewer",
+        )
+        _article, second_event, _created = ingest_article(
+            session,
+            second_source,
+            _payload("second-release", "Government approves offshore wind expansion plan"),
+        )
+
+        assert first_event.locked is True
+        assert second_event.id != first_event.id
+        assert session.scalar(select(func.count()).select_from(EventCluster)) == 2

@@ -146,6 +146,12 @@ class SplitEventRequest(StrictModel):
     reason: Annotated[str, Field(min_length=3, max_length=500)]
 
 
+class EventLockRequest(StrictModel):
+    locked: bool
+    reason: Annotated[str, Field(min_length=3, max_length=500)]
+    actor: Annotated[str, Field(min_length=2, max_length=120)] = "local-analyst"
+
+
 class ClaimContract(StrictModel):
     claim_id: str
     text: str

@@ -37,12 +37,16 @@
   </div>
   <div class="hero-actions">
     {% if report %}<a class="quiet-button" href="/api/v1/reports/{{ report.id }}?format=markdown" data-protected-link>Markdown</a>{% endif %}
+    <button class="quiet-button" type="button" data-event-lock="{{ event.id }}" data-locked="{{ 'true' if event.locked else 'false' }}">{{ '解除锁定' if event.locked else '锁定聚类' }}</button>
     <button class="primary-button" type="button" data-reanalyze="{{ event.id }}">重新分析</button>
   </div>
 </section>
 
 {% if event.is_demo %}
 <p class="demo-banner">本页为合成演示数据，不代表真实机构、公司、政策或投资判断。</p>
+{% endif %}
+{% if event.locked %}
+<p class="lock-banner">当前事件已锁定，自动抓取不会再把新文章聚入此事件。</p>
 {% endif %}
 
 <section class="verification-band">

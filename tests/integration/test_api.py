@@ -14,7 +14,9 @@ def test_migrated_application_serves_ui_and_protected_api(tmp_path: Path, monkey
     monkeypatch.setenv("SEED_DEMO", "true")
 
     from news_claws.config import get_settings
-    from news_claws.database import get_engine
+    from news_claws.database import get_engine, session_factory
+    from news_claws.models import EventCluster, Feedback
+    from sqlalchemy import select
 
     get_settings.cache_clear()
     get_engine.cache_clear()
@@ -55,6 +57,22 @@ def test_migrated_application_serves_ui_and_protected_api(tmp_path: Path, monkey
         assert events.status_code == 200
         items = events.json()["items"]
         assert len(items) == 2
+        industry_filter = client.get(
+            "/api/v1/events",
+            headers=headers,
+            params={"industry_id": "isic_3510", "limit": 1},
+        )
+        assert industry_filter.status_code == 200
+        assert len(industry_filter.json()["items"]) == 1
+        assert "海上风电" in industry_filter.json()["items"][0]["title"]
+        company_filter = client.get(
+            "/api/v1/events",
+            headers=headers,
+            params={"company_id": "demo_cloudworks"},
+        )
+        assert company_filter.status_code == 200
+        assert len(company_filter.json()["items"]) == 1
+        assert "数据出境" in company_filter.json()["items"][0]["title"]
         detail = client.get(f"/api/v1/events/{items[0]['id']}", headers=headers)
         assert detail.status_code == 200
         assert detail.json()["evidence"]
@@ -69,6 +87,59 @@ def test_migrated_application_serves_ui_and_protected_api(tmp_path: Path, monkey
         assert html_report.status_code == 200
         assert '<link rel="stylesheet" href="/static/report.css">' in html_report.text
         assert "<style>" not in html_report.text
+
+        event_id = items[0]["id"]
+        locked = client.patch(
+            f"/api/v1/events/{event_id}/lock",
+            headers=headers,
+            json={"locked": True, "reason": "manual freeze", "actor": "integration-reviewer"},
+        )
+        assert locked.status_code == 200
+        assert locked.json() == {"event_id": event_id, "locked": True}
+        locked_page = client.get(f"/events/{event_id}")
+        assert locked_page.status_code == 200
+        assert "当前事件已锁定" in locked_page.text
+
+        unlocked = client.patch(
+            f"/api/v1/events/{event_id}/lock",
+            headers=headers,
+            json={
+                "locked": False,
+                "reason": "correction complete",
+                "actor": "integration-reviewer",
+            },
+        )
+        assert unlocked.status_code == 200
+        assert unlocked.json()["locked"] is False
+        with session_factory(database_url)() as session:
+            persisted = session.get(EventCluster, event_id)
+            assert persisted is not None
+            assert persisted.locked is False
+            feedback = list(
+                session.scalars(
+                    select(Feedback)
+                    .where(
+                        Feedback.target_type == "cluster",
+                        Feedback.target_id == event_id,
+                    )
+                    .order_by(Feedback.created_at)
+                )
+            )
+            assert [item.actor for item in feedback] == [
+                "integration-reviewer",
+                "integration-reviewer",
+            ]
+            assert feedback[0].reason == "Locked event: manual freeze"
+            assert feedback[1].reason == "Unlocked event: correction complete"
+            persisted.state = "archived"
+            session.commit()
+
+        inactive_lock = client.patch(
+            f"/api/v1/events/{event_id}/lock",
+            headers=headers,
+            json={"locked": True, "reason": "must fail", "actor": "integration-reviewer"},
+        )
+        assert inactive_lock.status_code == 400
 
         updated = client.patch(
             "/api/v1/sources/us_sec_press",
@@ -93,6 +164,12 @@ def test_migrated_application_serves_ui_and_protected_api(tmp_path: Path, monkey
         source_list = client.get("/api/v1/sources", headers=headers).json()
         demo_source = next(item for item in source_list if item["id"] == "demo_market_daily")
         assert demo_source["last_success_at"] is not None
+        assert {
+            "fallback_url",
+            "timezone",
+            "compliance_notes",
+            "contact_owner",
+        }.issubset(demo_source)
 
         manual = client.post(
             "/api/v1/ingestion/url",

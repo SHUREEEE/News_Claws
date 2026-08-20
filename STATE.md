@@ -10,8 +10,8 @@
 - Verification owner: `independent verification pass completed`
 - Budget owner: `Tech Lead (user acting as project approver)`
 - Evidence directory: `evidence/dev-local/`
-- Last evidence: 83 tests and the full local gate passed; fresh replay eventually passed 52/52 sources and ingested 260 articles into 254 events with five exact-title cross-source clusters; the human benchmark remains absent
-- Next step: obtain the external release inputs listed below, then publish, deploy and run public acceptance
+- Last evidence: 90 tests and the full local gate passed with 89.06% domain branch coverage; expanded filters, safe source fallback and event lock/unlock passed API and real-browser verification; the human benchmark remains absent
+- Next step: seal and locally merge the verified candidate, then obtain the external release inputs listed below before public deployment
 
 ## Authorization Envelope
 
@@ -63,3 +63,5 @@
 | 2026-08-20 | in_progress | blocked | Local release checks exposed missing external deployment inputs and the absent real 200-event quality benchmark. | `PLAN.md`, production blockers, run log |
 | 2026-08-20 | passed | in_progress | Real-data audit reopened WP-2 after unrelated official releases were found in one event. | `evidence/dev-local/clustering-audit.md` |
 | 2026-08-20 | in_progress | passed | Two minimal clustering repairs passed focused tests and a fresh 260-article replay. | `tests/integration/test_clustering.py`, clustering audit |
+| 2026-08-20 | ready | in_progress | Word-baseline audit opened a bounded specification-completion attempt for missing source fallback, SQL filters and event locking. | `docs/RELEASE_ACCEPTANCE_MATRIX.md` |
+| 2026-08-20 | in_progress | passed | 90 tests, 89.06% domain branch coverage, static gates and desktop/mobile browser verification passed. | `tests/unit/test_source_fallback.py`, `tests/integration/test_event_filters.py`, run log |

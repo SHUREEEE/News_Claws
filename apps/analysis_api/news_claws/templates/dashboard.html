@@ -9,7 +9,7 @@
   'withdrawn_or_disproved': '已撤回 / 已证伪',
   'pending': '待核实'
 } %}
-<section class="page-heading"
+<section class="page-heading">
   <div>
     <p class="eyebrow">事件情报</p>
     <h1>最新事件</h1>
@@ -48,8 +48,53 @@
     <span class="sr-only">地区</span>
     <select name="region">
       <option value="">全部地区</option>
-      {% for code in ['CN','US','EU','UK','JP','GLOBAL'] %}
+      {% for code in region_options %}
       <option value="{{ code }}" {% if filters.region == code %}selected{% endif %}>{{ code }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span class="sr-only">语言</span>
+    <select name="language">
+      <option value="">全部语言</option>
+      {% for code in language_options %}
+      <option value="{{ code }}" {% if filters.language == code %}selected{% endif %}>{{ code }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span class="sr-only">新闻来源</span>
+    <select name="source_id">
+      <option value="">全部来源</option>
+      {% for source in source_options %}
+      <option value="{{ source.id }}" {% if filters.source_id == source.id %}selected{% endif %}>{{ source.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span class="sr-only">关联行业</span>
+    <select name="industry_id">
+      <option value="">全部行业</option>
+      {% for industry in industry_options %}
+      <option value="{{ industry.id }}" {% if filters.industry_id == industry.id %}selected{% endif %}>{{ industry.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span class="sr-only">影响方向</span>
+    <select name="direction">
+      <option value="">全部方向</option>
+      {% for value, label in [('positive','正面'),('negative','负面'),('mixed','多空并存'),('neutral','中性'),('unknown','未知')] %}
+      <option value="{{ value }}" {% if filters.direction == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span class="sr-only">影响强度</span>
+    <select name="strength">
+      <option value="">全部强度</option>
+      {% for value, label in [('high','高'),('medium','中'),('low','低')] %}
+      <option value="{{ value }}" {% if filters.strength == value %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
   </label>

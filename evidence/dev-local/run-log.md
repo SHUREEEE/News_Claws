@@ -148,3 +148,48 @@ No root cause reached the three-return stop condition.
 - Dependency audit: no known vulnerabilities; the unpublished local `news-claws` package was skipped as expected.
 - Fresh isolated Alembic upgrade honored `DATABASE_URL`, reached `c31e8f2407ad`, and passed `PRAGMA integrity_check`.
 - Docker image build and in-container non-root mountpoint checks remain unexecuted because Docker is not installed locally.
+
+## 2026-08-20 - Specification Completion Pass
+
+- Evidence class: verified fact.
+- Audited all 5 product goals, 28 P0 functional requirements, 12 non-functional requirements and 10 UAT scenarios from both Word baselines.
+- Added `docs/RELEASE_ACCEPTANCE_MATRIX.md` with per-requirement PASS/PARTIAL/OPEN/GATED evidence and explicit release gates. Both source documents remain review drafts with all four approvers unassigned.
+- Added primary/fallback collection for RSS/Atom, API and Sitemap sources. Unsafe primary or fallback targets fail closed and are never masked by a secondary URL.
+- Moved verification, region, language, source, industry, company, direction and strength filtering into SQL before `limit`; API result metadata now returns sorted languages and source IDs.
+- Added event lock/unlock API and UI controls. Lock changes persist actor/reason records, inactive events reject lock changes, and locked events are excluded from automatic clustering.
+- Exposed fallback URL, timezone, compliance notes and contact owner in the authenticated source API contract.
+- Corrected the malformed dashboard heading element and expanded the filter layout responsively.
+
+### Checker And Repair Evidence
+
+| Root cause ID | Checker result | Smallest return | Repair count | Final evidence |
+|---|---|---|---:|---|
+| NC-FALLBACK-001 | `UnsafeUrlError` inherits `ValueError`, so a broad catch could mask an unsafe primary URL with a fallback request. | Phase 05 source fallback exception routing. | 1 | Five fallback tests cover RSS/API/Sitemap, no-fallback propagation and unsafe-primary fail-closed behavior. |
+| NC-FILTER-001 | Post-query Python filters could discard matches after the database had already applied `limit`. | Phase 05 event query construction. | 1 | SQL filtering before limit passes service and authenticated API integration tests. |
+| NC-UI-TEMPLATE-001 | The dashboard heading `<section>` was missing its closing `>`. | Phase 05 dashboard template only. | 1 | Jinja rendering and desktop/mobile Playwright snapshots pass. |
+| NC-FORMAT-001 | The final sorting patch had not been passed through Ruff format. | Phase 05 formatter on `services.py` only. | 2 cumulative | Second full gate reports 68 files already formatted and Ruff clean. |
+
+No root cause reached the three-return stop condition.
+
+### Final Verification Evidence
+
+- Targeted regression: 13 tests passed for source fallback, filters, clustering and API behavior.
+- Full pytest gate with warnings treated as errors: 90 passed.
+- Domain branch coverage: 89.06% against the 85% minimum.
+- Ruff format: 68 files already formatted; Ruff lint passed.
+- Python compileall and `node --check apps/analysis_api/news_claws/static/app.js`: passed.
+- Dependency audit: no known vulnerabilities; the unpublished local package was skipped as expected.
+- Fresh isolated migration reached `c31e8f2407ad (head)`.
+- Desktop dashboard: 1440x1000 screenshot, complete filter controls and correct event table.
+- Mobile dashboard: 390x844 viewport, document width equals viewport width, zero horizontally overflowing elements and zero overlapping interactive-control pairs.
+- Real-browser workflow: industry `isic_3510` returned the wind event; lock and unlock both persisted and re-rendered the correct button/banner state.
+- Browser screenshots:
+  - `output/playwright/dashboard-desktop.png`
+  - `output/playwright/dashboard-mobile.png`
+- Temporary `newsqa` browser, attachment browser, 8016 QA server and the prior 8015 preview were closed before sealing.
+
+### Remaining Release Gates
+
+- Verified fact: local code and integration gates pass.
+- Unknown/GATED: public deployment still lacks a Git remote, Linux/Docker host, domain/DNS/TLS, production secrets, real SEC contact address, SMTP configuration, reviewed exchange catalogues, 50k performance evidence and a human-reviewed 200-event benchmark.
+- Decision: deterministic local analysis remains the approved no-vendor MVP path. Broader PRD clauses for Newspaper4k/news-please and external LLM invalid-JSON recovery remain explicit acceptance gaps, not fabricated successes.

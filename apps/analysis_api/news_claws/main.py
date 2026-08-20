@@ -40,6 +40,7 @@ from .notifications import (
 )
 from .scheduler import collection_loop
 from .schemas import (
+    EventLockRequest,
     FeedbackCreate,
     IngestionRequest,
     ManualIngestionRequest,
@@ -60,6 +61,7 @@ from .services import (
     pull_sources,
     reanalyze_event,
     seed_demo,
+    set_event_lock,
     split_event,
     submit_feedback,
     system_summary,
@@ -313,6 +315,12 @@ def dashboard(
     q: str | None = None,
     verification: str | None = None,
     region: str | None = None,
+    language: str | None = None,
+    source_id: str | None = None,
+    industry_id: str | None = None,
+    company_id: str | None = None,
+    direction: str | None = None,
+    strength: str | None = None,
     dataset: str = "all",
 ) -> HTMLResponse:
     demo = True if dataset == "demo" else False if dataset == "live" else None
@@ -321,7 +329,16 @@ def dashboard(
         query=q,
         verification_status=verification,
         region=region,
+        language=language,
+        source_id=source_id,
+        industry_id=industry_id,
+        company_id=company_id,
+        direction=direction,
+        strength=strength,
         demo=demo,
+    )
+    source_options = list(
+        session.scalars(select(Source).where(Source.enabled.is_(True)).order_by(Source.name))
     )
     return templates.TemplateResponse(
         request=request,
@@ -330,10 +347,20 @@ def dashboard(
             "page": "events",
             "events": events,
             "summary": system_summary(session, settings),
+            "source_options": source_options,
+            "industry_options": list(session.scalars(select(Industry).order_by(Industry.name))),
+            "region_options": sorted({source.region for source in source_options}),
+            "language_options": sorted({source.language for source in source_options}),
             "filters": {
                 "q": q or "",
                 "verification": verification or "",
                 "region": region or "",
+                "language": language or "",
+                "source_id": source_id or "",
+                "industry_id": industry_id or "",
+                "company_id": company_id or "",
+                "direction": direction or "",
+                "strength": strength or "",
                 "dataset": dataset,
             },
         },
@@ -411,8 +438,12 @@ def source_payload(source: Source) -> dict[str, Any]:
         "official": source.official,
         "method": source.method,
         "entry_url": source.entry_url,
+        "fallback_url": source.fallback_url,
         "schedule": source.schedule,
+        "timezone": source.timezone,
         "content_policy": source.content_policy,
+        "compliance_notes": source.compliance_notes,
+        "contact_owner": source.contact_owner,
         "enabled": source.enabled,
         "is_demo": source.is_demo,
         "last_success_at": source.last_success_at,
@@ -512,6 +543,15 @@ def api_events(
     q: str | None = None,
     verification: str | None = None,
     region: str | None = None,
+    language: str | None = None,
+    source_id: str | None = None,
+    industry_id: str | None = None,
+    company_id: str | None = None,
+    direction: str | None = Query(
+        default=None,
+        pattern="^(positive|negative|mixed|neutral|unknown)$",
+    ),
+    strength: str | None = Query(default=None, pattern="^(low|medium|high)$"),
     dataset: str = Query(default="all", pattern="^(all|demo|live)$"),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> dict[str, Any]:
@@ -521,6 +561,12 @@ def api_events(
         query=q,
         verification_status=verification,
         region=region,
+        language=language,
+        source_id=source_id,
+        industry_id=industry_id,
+        company_id=company_id,
+        direction=direction,
+        strength=strength,
         demo=demo,
         limit=limit,
     )
@@ -550,6 +596,27 @@ def api_reanalyze(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return {"event_id": event_id, "report_id": report.id, "version": report.version}
+
+
+@app.patch("/api/v1/events/{event_id}/lock", dependencies=[Depends(require_admin)])
+def api_set_event_lock(
+    event_id: str,
+    payload: EventLockRequest,
+    session: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    try:
+        event = set_event_lock(
+            session,
+            event_id,
+            locked=payload.locked,
+            reason=payload.reason,
+            actor=payload.actor,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"event_id": event.id, "locked": event.locked}
 
 
 @app.post("/api/v1/events/merge", dependencies=[Depends(require_admin)])
