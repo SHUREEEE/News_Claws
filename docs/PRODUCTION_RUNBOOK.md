@@ -40,6 +40,41 @@ Caddy obtains and renews TLS certificates automatically. The public liveness end
 only service status. Every UI and API route requires Caddy basic authentication; API mutations
 also require the application administrator token.
 
+## GitHub Production Environment
+
+The manual `deploy-production` workflow provides the same single-host Compose deployment with
+pre-deployment backup, immutable-image verification, readiness wait and public HTTPS smoke. It does
+not bypass any release gate. Configure a GitHub environment named `production`, restrict it to the
+`master` branch and require an owner review before deployment.
+
+Set these environment variables:
+
+- `PRODUCTION_HOST`: verified DNS hostname or IPv4 address of the SSH host.
+- `PRODUCTION_USER`: unprivileged deployment user with Docker access.
+- `PRODUCTION_SSH_PORT`: SSH port; defaults to `22`.
+- `PRODUCTION_PATH`: specific writable absolute path; defaults to `/srv/news-claws`.
+- `GHCR_USER`: registry username; defaults to the repository owner.
+
+Set these environment secrets:
+
+- `PRODUCTION_SSH_PRIVATE_KEY`: dedicated deployment key with no unrelated host access.
+- `PRODUCTION_KNOWN_HOSTS`: pinned host-key line verified through an independent channel. Never
+  replace it with disabled host-key checking.
+- `PRODUCTION_ENV_FILE`: complete production environment based on `.env.production.example`. The
+  workflow replaces only `NEWS_CLAWS_IMAGE` and `NEWS_CLAWS_IMAGE_TAG`, then validates everything.
+- `GHCR_READ_TOKEN`: token limited to `read:packages`.
+- `BASIC_AUTH_PASSWORD`: plaintext corresponding to `BASIC_AUTH_HASH`, used only by public smoke.
+
+Dispatch the workflow from `master` with the full 40-character SHA produced by a successful
+`publish-container` run. The SHA must be an ancestor of `master`, and the workflow resolves its
+registry digest before opening SSH. The host refuses to start the pulled image unless its digest
+matches that verified value. Leave `rollback_approved=false` unless the migration history has been
+reviewed as compatible with the previous image. When approved, readiness or public-smoke failure
+restores the previous release; otherwise the workflow fails closed for operator review.
+
+The automated backup remains in the encrypted/persistent `analysis-backups` Docker volume. It is
+not an off-host disaster-recovery copy, so the off-host backup gate below still applies.
+
 After DNS and TLS are active, keep the plaintext Basic Auth password out of `.env.production` and export it only for the read-only public smoke:
 
 ~~~bash
