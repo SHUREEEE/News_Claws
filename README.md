@@ -93,9 +93,10 @@ docker compose --env-file .env.production -f compose.prod.yaml pull analysis-api
 docker compose --env-file .env.production -f compose.prod.yaml up -d --no-build
 ~~~
 
-The repository is private, so the host must authenticate to `ghcr.io` with a token limited to
-`read:packages` before pulling the image. The release workflow publishes an immutable full-SHA tag,
-BuildKit provenance and an SBOM; production must use the full-SHA tag, not a floating tag.
+The host authenticates to `ghcr.io` with a token limited to `read:packages` before pulling the
+image. The release workflow publishes an immutable full-SHA tag, BuildKit provenance and an SBOM;
+production must use the full-SHA tag, not a floating tag. A protected manual GitHub deployment
+workflow is available after the `production` environment inputs in the Runbook are configured.
 
 After public DNS and TLS are active, run `scripts/smoke_public.py` as described in the production Runbook. It performs read-only checks for the gateway, security headers, application authentication and core UI/API routes.
 

@@ -1,0 +1,182 @@
+name: deploy-production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_sha:
+        description: Full Git SHA of a published master image
+        required: true
+        type: string
+      rollback_approved:
+        description: Allow rollback only after schema compatibility is approved
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      IMAGE_SHA: ${{ inputs.image_sha }}
+      ROLLBACK_APPROVED: ${{ inputs.rollback_approved }}
+      PRODUCTION_HOST: ${{ vars.PRODUCTION_HOST }}
+      PRODUCTION_USER: ${{ vars.PRODUCTION_USER }}
+      PRODUCTION_SSH_PORT: ${{ vars.PRODUCTION_SSH_PORT || '22' }}
+      PRODUCTION_PATH: ${{ vars.PRODUCTION_PATH || '/srv/news-claws' }}
+      GHCR_USER: ${{ vars.GHCR_USER || github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Validate deployment inputs
+        env:
+          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+          PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          BASIC_AUTH_PASSWORD: ${{ secrets.BASIC_AUTH_PASSWORD }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$GITHUB_REF" == "refs/heads/master" ]]
+          [[ "$IMAGE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PRODUCTION_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$PRODUCTION_USER" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$PRODUCTION_SSH_PORT" =~ ^[0-9]{1,5}$ ]]
+          (( PRODUCTION_SSH_PORT >= 1 && PRODUCTION_SSH_PORT <= 65535 ))
+          [[ "$PRODUCTION_PATH" =~ ^/[A-Za-z0-9._/-]+$ ]]
+          [[ "$PRODUCTION_PATH" != "/" && "$PRODUCTION_PATH" != *"/../"* ]]
+          [[ "$PRODUCTION_PATH" != */.. && "$PRODUCTION_PATH" != *"//"* ]]
+          [[ "$GHCR_USER" =~ ^[A-Za-z0-9-]{1,39}$ ]]
+          [[ -n "$PRODUCTION_ENV_FILE" ]]
+          [[ -n "$PRODUCTION_SSH_PRIVATE_KEY" ]]
+          [[ -n "$PRODUCTION_KNOWN_HOSTS" ]]
+          [[ -n "$GHCR_READ_TOKEN" ]]
+          [[ -n "$BASIC_AUTH_PASSWORD" ]]
+          git cat-file -e "${IMAGE_SHA}^{commit}"
+          git merge-base --is-ancestor "$IMAGE_SHA" origin/master
+      - name: Install smoke dependencies
+        run: python -m pip install .
+      - name: Prepare production environment
+        env:
+          PRODUCTION_ENV_FILE: ${{ secrets.PRODUCTION_ENV_FILE }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          printf '%s\n' "$PRODUCTION_ENV_FILE" > "$RUNNER_TEMP/production.env.base"
+          python scripts/prepare_deployment_env.py \
+            "$RUNNER_TEMP/production.env.base" \
+            "$RUNNER_TEMP/.env.production" \
+            "$IMAGE_SHA"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.validate_production_env import parse_env
+
+          values = parse_env(Path(os.environ["RUNNER_TEMP"]) / ".env.production")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as handle:
+              for key in ("DOMAIN", "BASIC_AUTH_USER", "ADMIN_TOKEN"):
+                  value = values[key]
+                  if key == "ADMIN_TOKEN":
+                      print(f"::add-mask::{value}")
+                  handle.write(f"{key}={value}\n")
+          PY
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ env.GHCR_USER }}
+          password: ${{ secrets.GHCR_READ_TOKEN }}
+      - name: Verify immutable image
+        id: image
+        run: |
+          set -Eeuo pipefail
+          image="ghcr.io/shureeee/news_claws:$IMAGE_SHA"
+          digest="$(docker buildx imagetools inspect "$image" | awk '$1 == "Digest:" {print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "Verified $image@$digest"
+      - name: Configure verified SSH host
+        env:
+          PRODUCTION_SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
+          PRODUCTION_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$PRODUCTION_SSH_PRIVATE_KEY" > "$HOME/.ssh/production_key"
+          printf '%s\n' "$PRODUCTION_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          cat > "$HOME/.ssh/config" <<EOF
+          Host news-claws-production
+            HostName $PRODUCTION_HOST
+            User $PRODUCTION_USER
+            Port $PRODUCTION_SSH_PORT
+            IdentityFile $HOME/.ssh/production_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile $HOME/.ssh/known_hosts
+            ConnectTimeout 15
+          EOF
+          chmod 600 "$HOME/.ssh/production_key" "$HOME/.ssh/known_hosts" "$HOME/.ssh/config"
+          ssh news-claws-production true
+      - name: Package deployment files
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          tar -czf "$RUNNER_TEMP/release.tar.gz" \
+            compose.prod.yaml deploy/Caddyfile config scripts/validate_production_env.py
+          printf '%s' "$GHCR_READ_TOKEN" > "$RUNNER_TEMP/ghcr-token"
+          chmod 600 "$RUNNER_TEMP/release.tar.gz" "$RUNNER_TEMP/.env.production" "$RUNNER_TEMP/ghcr-token"
+      - name: Upload deployment files
+        run: |
+          set -Eeuo pipefail
+          incoming="$PRODUCTION_PATH/.incoming-$GITHUB_RUN_ID"
+          ssh news-claws-production "install -d -m 700 -- '$PRODUCTION_PATH' '$incoming'"
+          scp "$RUNNER_TEMP/release.tar.gz" \
+            "$RUNNER_TEMP/.env.production" \
+            "$RUNNER_TEMP/ghcr-token" \
+            "news-claws-production:$incoming/"
+      - name: Deploy and wait for readiness
+        id: deploy
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -Eeuo pipefail
+          ssh news-claws-production \
+            "bash -s -- '$PRODUCTION_PATH' '$IMAGE_SHA' '$IMAGE_DIGEST' '$GITHUB_RUN_ID' '$ROLLBACK_APPROVED' '$GHCR_USER'" \
+            < deploy/remote-deploy.sh
+      - name: Run public HTTPS smoke
+        env:
+          BASIC_AUTH_PASSWORD: ${{ secrets.BASIC_AUTH_PASSWORD }}
+        run: python scripts/smoke_public.py "https://$DOMAIN"
+      - name: Restore previous release after failed public smoke
+        if: ${{ failure() && steps.deploy.outcome == 'success' && inputs.rollback_approved }}
+        run: |
+          ssh news-claws-production \
+            "GITHUB_RUN_ID='$GITHUB_RUN_ID' bash -s -- '$PRODUCTION_PATH'" \
+            < deploy/remote-rollback.sh
+      - name: Write deployment summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## News Claws production deployment"
+            echo "- Image SHA: \`$IMAGE_SHA\`"
+            echo "- Image digest: \`${{ steps.image.outputs.digest }}\`"
+            echo "- Rollback pre-approved: \`$ROLLBACK_APPROVED\`"
+            echo "- Target domain: \`$DOMAIN\`"
+          } >> "$GITHUB_STEP_SUMMARY"
