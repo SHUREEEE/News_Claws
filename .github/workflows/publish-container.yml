@@ -30,6 +30,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/shureeee/news_claws
+          flavor: latest=false
           tags: |
             type=raw,value=${{ github.sha }}
             type=semver,pattern={{version}}
@@ -45,3 +46,11 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           provenance: mode=max
           sbom: true
+      - name: Verify immutable image digest
+        env:
+          IMAGE: ghcr.io/shureeee/news_claws:${{ github.sha }}
+          EXPECTED_DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          actual_digest="$(docker buildx imagetools inspect "$IMAGE" | awk '$1 == "Digest:" {print $2; exit}')"
+          test -n "$actual_digest"
+          test "$actual_digest" = "$EXPECTED_DIGEST"
