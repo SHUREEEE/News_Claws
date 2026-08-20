@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 from news_claws.catalog import bootstrap_catalog
@@ -12,7 +13,7 @@ from news_claws.models import (
     Report,
     Source,
 )
-from news_claws.services import event_detail, ingest_article, seed_demo
+from news_claws.services import analyze_event, event_detail, ingest_article, seed_demo
 from sqlalchemy import func, select
 
 
@@ -64,6 +65,17 @@ def test_demo_pipeline_is_traceable_and_idempotent(tmp_path: Path) -> None:
         assert detail["verification"].status == "primary_source_confirmed"
         assert detail["industries"]
         assert detail["companies"]
+
+        representative = session.get(Article, wind_event.representative_article_id)
+        assert representative is not None
+        updated_last_seen = datetime(2026, 8, 21, 9, tzinfo=UTC)
+        representative.last_seen_at = updated_last_seen
+        existing_report = analyze_event(session, wind_event.id, settings)
+        assert existing_report.id == detail["report"].id
+        with session_factory(database_url)() as verification_session:
+            persisted = verification_session.get(Article, representative.id)
+            assert persisted is not None
+            assert persisted.last_seen_at.replace(tzinfo=UTC) == updated_last_seen
 
 
 def test_article_change_creates_version_without_duplicate_article(tmp_path: Path) -> None:

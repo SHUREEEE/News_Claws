@@ -210,3 +210,14 @@ No root cause reached the three-return stop condition.
 - Resolved: Git remote, repository publication, PR integration, immutable container publication, protected deployment workflow and GitHub production environment.
 - Still GATED: FR-ING-003 and UAT-09 baseline decisions, real host/domain/DNS/TLS, production environment values and credentials, real contact identity, SMTP/monitoring, reviewed source/company catalogues, 200-event human benchmark, 50k performance run, two-week trial, timed recovery drill, accessibility review and four-role sign-off.
 - Decision: no production deployment was dispatched and no missing input was fabricated. WP-8 remains `blocked` until the release owner supplies and approves the external inputs.
+
+## 2026-08-21 - Ingestion And Strict LLM Closeout
+
+- Evidence class: verified local fact.
+- Wired Newspaper4k extraction and explicit news-please website discovery into safe collection; third-party libraries receive only already-fetched HTML.
+- Added source parser persistence/migration, metadata-only skip, bounded enrichment concurrency, same-origin discovery and robots-aware filtering.
+- Added strict OpenAI-compatible JSON Schema analysis with one repair, evidence/target allow-lists, prompt bounds, token/cost accounting, dead/retry states and explicit manual retry.
+- Repaired duplicate targets, non-finite numeric validation, failed-call budget accounting and merge/split post-commit response semantics during the Checker loop.
+- Final local gate passed 146 tests with warnings treated as errors and 89.88% domain branch coverage; Ruff format/lint and compileall passed.
+- Real Newspaper4k/news-please HTML smoke, dependency audit and isolated migration to `d542a38f7c10 (head)` passed.
+- Detailed evidence and remaining GitHub/production gates: `evidence/dev-local/ingestion-llm-closeout-20260821.md`.

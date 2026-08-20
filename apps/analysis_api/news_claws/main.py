@@ -19,9 +19,11 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from .adapters.llm import LLMProviderError
 from .catalog import bootstrap_catalog
 from .config import Settings, get_settings
 from .database import get_db, session_factory, upgrade_database
+from .domain.llm import LLMContractError
 from .domain.security import UnsafeUrlError
 from .models import (
     AuditLog,
@@ -442,6 +444,7 @@ def source_payload(source: Source) -> dict[str, Any]:
         "schedule": source.schedule,
         "timezone": source.timezone,
         "content_policy": source.content_policy,
+        "parser": source.parser,
         "compliance_notes": source.compliance_notes,
         "contact_owner": source.contact_owner,
         "enabled": source.enabled,
@@ -585,16 +588,20 @@ def api_event_detail(
 
 
 @app.post("/api/v1/events/{event_id}/reanalyze", dependencies=[Depends(require_admin)])
-def api_reanalyze(
+async def api_reanalyze(
     event_id: str,
     payload: ReanalyzeRequest,
     session: Annotated[Session, Depends(get_db)],
     settings: Annotated[Settings, Depends(settings_dependency)],
 ) -> dict[str, Any]:
     try:
-        report = reanalyze_event(session, event_id, settings)
+        report = await reanalyze_event(session, event_id, settings)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LLMContractError as exc:
+        raise HTTPException(status_code=502, detail=f"Model analysis failed: {exc.code}") from exc
+    except (LLMProviderError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=502, detail="Model provider is unavailable") from exc
     return {"event_id": event_id, "report_id": report.id, "version": report.version}
 
 
@@ -620,30 +627,38 @@ def api_set_event_lock(
 
 
 @app.post("/api/v1/events/merge", dependencies=[Depends(require_admin)])
-def api_merge_events(
+async def api_merge_events(
     payload: MergeEventsRequest,
     session: Annotated[Session, Depends(get_db)],
     settings: Annotated[Settings, Depends(settings_dependency)],
-) -> dict[str, str]:
+) -> dict[str, str | None]:
     try:
-        event_id = merge_events(session, payload.event_ids, payload.reason, settings)
+        result = await merge_events(session, payload.event_ids, payload.reason, settings)
     except (LookupError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"event_id": event_id}
+    return {
+        "event_id": result.event_id,
+        "analysis_status": result.analysis_status,
+        "analysis_error": result.analysis_error,
+    }
 
 
 @app.post("/api/v1/events/{event_id}/split", dependencies=[Depends(require_admin)])
-def api_split_event(
+async def api_split_event(
     event_id: str,
     payload: SplitEventRequest,
     session: Annotated[Session, Depends(get_db)],
     settings: Annotated[Settings, Depends(settings_dependency)],
-) -> dict[str, str]:
+) -> dict[str, str | None]:
     try:
-        new_event_id = split_event(session, event_id, payload.article_ids, payload.reason, settings)
+        result = await split_event(session, event_id, payload.article_ids, payload.reason, settings)
     except (LookupError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"event_id": new_event_id}
+    return {
+        "event_id": result.event_id,
+        "analysis_status": result.analysis_status,
+        "analysis_error": result.analysis_error,
+    }
 
 
 @app.get("/api/v1/reports/{report_id}", dependencies=[Depends(require_admin)])

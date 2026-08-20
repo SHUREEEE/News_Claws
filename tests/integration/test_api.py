@@ -76,6 +76,13 @@ def test_migrated_application_serves_ui_and_protected_api(tmp_path: Path, monkey
         detail = client.get(f"/api/v1/events/{items[0]['id']}", headers=headers)
         assert detail.status_code == 200
         assert detail.json()["evidence"]
+        reanalyzed = client.post(
+            f"/api/v1/events/{items[0]['id']}/reanalyze",
+            headers=headers,
+            json={"reason": "integration verification"},
+        )
+        assert reanalyzed.status_code == 200
+        assert reanalyzed.json()["event_id"] == items[0]["id"]
         report_id = items[0]["report_id"]
         report = client.get(f"/api/v1/reports/{report_id}", headers=headers)
         assert report.status_code == 200
@@ -169,6 +176,7 @@ def test_migrated_application_serves_ui_and_protected_api(tmp_path: Path, monkey
             "timezone",
             "compliance_notes",
             "contact_owner",
+            "parser",
         }.issubset(demo_source)
 
         manual = client.post(

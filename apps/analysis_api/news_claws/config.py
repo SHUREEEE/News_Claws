@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import lru_cache
+from math import isfinite
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -47,12 +49,56 @@ class Settings:
     smtp_from: str = ""
     smtp_starttls: bool = True
     notification_batch_size: int = 100
+    llm_api_base_url: str = ""
+    llm_api_key: str = ""
+    llm_timeout_seconds: float = 30.0
+    llm_max_output_tokens: int = 2_000
+    llm_per_event_budget: float = 0.50
+    llm_input_cost_per_million: float = 0.0
+    llm_output_cost_per_million: float = 0.0
+    newsplease_discovery_source_ids: tuple[str, ...] = ()
 
     def validate(self) -> None:
         if self.app_env not in {"dev", "test", "prod"}:
             raise RuntimeError("APP_ENV must be one of: dev, test, prod")
-        if self.daily_llm_budget < 0:
-            raise RuntimeError("DAILY_LLM_BUDGET cannot be negative")
+        if not isfinite(self.daily_llm_budget) or self.daily_llm_budget < 0:
+            raise RuntimeError("DAILY_LLM_BUDGET must be finite and non-negative")
+        if self.llm_provider not in {"deterministic", "openai-compatible"}:
+            raise RuntimeError("LLM_PROVIDER must be deterministic or openai-compatible")
+        if not isfinite(self.llm_timeout_seconds) or not 1 <= self.llm_timeout_seconds <= 120:
+            raise RuntimeError("LLM_TIMEOUT_SECONDS must be between 1 and 120")
+        if not 1 <= self.llm_max_output_tokens <= 20_000:
+            raise RuntimeError("LLM_MAX_OUTPUT_TOKENS must be between 1 and 20000")
+        if not isfinite(self.llm_per_event_budget) or self.llm_per_event_budget < 0:
+            raise RuntimeError("LLM_PER_EVENT_BUDGET must be finite and non-negative")
+        if (
+            not all(
+                isfinite(value)
+                for value in (
+                    self.llm_input_cost_per_million,
+                    self.llm_output_cost_per_million,
+                )
+            )
+            or self.llm_input_cost_per_million < 0
+            or self.llm_output_cost_per_million < 0
+        ):
+            raise RuntimeError("LLM token prices must be finite and non-negative")
+        if len(self.newsplease_discovery_source_ids) > 60:
+            raise RuntimeError("NEWS_PLEASE_DISCOVERY_SOURCE_IDS cannot contain more than 60 IDs")
+        if self.llm_provider == "openai-compatible":
+            parts = urlsplit(self.llm_api_base_url)
+            if parts.scheme not in {"http", "https"} or not parts.hostname:
+                raise RuntimeError(
+                    "LLM_API_BASE_URL must be an absolute HTTP(S) URL for openai-compatible mode"
+                )
+            if parts.username or parts.password:
+                raise RuntimeError("LLM_API_BASE_URL must not contain credentials")
+            if not self.llm_api_key:
+                raise RuntimeError("LLM_API_KEY is required for openai-compatible mode")
+            if not self.llm_model:
+                raise RuntimeError("LLM_MODEL is required for openai-compatible mode")
+            if self.daily_llm_budget <= 0 or self.llm_per_event_budget <= 0:
+                raise RuntimeError("Positive LLM budgets are required for openai-compatible mode")
         if self.data_retention_days < 1:
             raise RuntimeError("DATA_RETENTION_DAYS must be at least 1")
         if self.max_request_bytes < 1024:
@@ -144,6 +190,14 @@ def get_settings() -> Settings:
         smtp_from=os.getenv("SMTP_FROM", "").strip(),
         smtp_starttls=_as_bool(os.getenv("SMTP_STARTTLS"), default=True),
         notification_batch_size=int(os.getenv("NOTIFICATION_BATCH_SIZE", "100")),
+        llm_api_base_url=os.getenv("LLM_API_BASE_URL", "").strip(),
+        llm_api_key=os.getenv("LLM_API_KEY", ""),
+        llm_timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "30")),
+        llm_max_output_tokens=int(os.getenv("LLM_MAX_OUTPUT_TOKENS", "2000")),
+        llm_per_event_budget=float(os.getenv("LLM_PER_EVENT_BUDGET", "0.50")),
+        llm_input_cost_per_million=float(os.getenv("LLM_INPUT_COST_PER_MILLION", "0")),
+        llm_output_cost_per_million=float(os.getenv("LLM_OUTPUT_COST_PER_MILLION", "0")),
+        newsplease_discovery_source_ids=_csv(os.getenv("NEWS_PLEASE_DISCOVERY_SOURCE_IDS"), ()),
     )
     settings.validate()
     return settings

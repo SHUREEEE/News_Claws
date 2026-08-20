@@ -57,6 +57,27 @@ def test_enabled_notifications_require_smtp_secrets() -> None:
     assert any("SMTP_PASSWORD" in error for error in errors)
 
 
+def test_openai_compatible_mode_requires_model_endpoint_key_and_positive_budgets() -> None:
+    values = valid_environment()
+    values.update(
+        {
+            "LLM_PROVIDER": "openai-compatible",
+            "LLM_MODEL": "",
+            "LLM_API_BASE_URL": "not-a-url",
+            "LLM_API_KEY": "",
+            "DAILY_LLM_BUDGET": "0",
+            "LLM_PER_EVENT_BUDGET": "0",
+            "LLM_INPUT_COST_PER_MILLION": "-1",
+        }
+    )
+    errors = validate(values)
+    assert any("LLM_API_BASE_URL" in error for error in errors)
+    assert any("LLM_API_KEY" in error for error in errors)
+    assert any("LLM_MODEL" in error for error in errors)
+    assert any("Positive LLM budgets" in error for error in errors)
+    assert any("token prices" in error for error in errors)
+
+
 def test_runtime_numeric_and_boolean_settings_are_preflighted() -> None:
     values = valid_environment()
     values.update(

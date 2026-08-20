@@ -10,7 +10,7 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY apps/analysis_api ./apps/analysis_api
 RUN python -m pip install --no-cache-dir "pip>=26.1.2,<27" \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir ".[extract,discover]"
 
 COPY alembic.ini ./
 COPY config ./config

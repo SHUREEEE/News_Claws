@@ -17,6 +17,7 @@ def test_production_compose_uses_immutable_image_and_persistent_volumes() -> Non
     assert "env_file" not in service
     assert "BASIC_AUTH_HASH" not in service["environment"]
     assert "SMTP_PASSWORD" in service["environment"]
+    assert "LLM_API_KEY" in service["environment"]
     assert "analysis-data:/data" in service["volumes"]
     assert "analysis-backups:/backups" in service["volumes"]
     assert service["read_only"] is True
@@ -39,6 +40,7 @@ def test_container_prepares_writable_data_and_backup_mountpoints() -> None:
     assert "mkdir -p /data /backups" in dockerfile
     assert "chown -R newsclaws:newsclaws /app /data /backups" in dockerfile
     assert "USER newsclaws" in dockerfile
+    assert 'pip install --no-cache-dir ".[extract,discover]"' in dockerfile
 
 
 def test_caddy_protects_everything_except_liveness() -> None:

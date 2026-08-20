@@ -48,16 +48,25 @@ class SourceCreate(StrictModel):
     source_type: str = "government"
     tier: Literal["S1", "S2", "S3", "S4"]
     official: bool = False
-    method: Literal["rss", "atom", "api", "sitemap", "manual", "fixture"]
+    method: Literal["rss", "atom", "api", "sitemap", "website", "manual", "fixture"]
     entry_url: str
     fallback_url: str | None = None
     schedule: str = "*/15 * * * *"
     timezone: str = "UTC"
     content_policy: Literal["metadata_only", "metadata_and_excerpt", "fulltext_allowed"]
+    parser: Literal["auto", "metadata", "newspaper4k", "news-please"] = "auto"
     compliance_notes: str = ""
     contact_owner: str = "source-admin"
     enabled: bool = True
     is_demo: bool = False
+
+    @model_validator(mode="after")
+    def website_discovery_is_explicit(self) -> SourceCreate:
+        if self.method == "website" and self.parser != "news-please":
+            raise ValueError("website sources require parser=news-please")
+        if self.method == "website" and self.content_policy == "metadata_only":
+            raise ValueError("website sources require an excerpt-enabled content policy")
+        return self
 
 
 class SourceUpdate(StrictModel):
@@ -68,7 +77,7 @@ class SourceUpdate(StrictModel):
     source_type: str | None = None
     tier: Literal["S1", "S2", "S3", "S4"] | None = None
     official: bool | None = None
-    method: Literal["rss", "atom", "api", "sitemap", "manual"] | None = None
+    method: Literal["rss", "atom", "api", "sitemap", "website", "manual"] | None = None
     entry_url: str | None = None
     fallback_url: str | None = None
     schedule: str | None = None
@@ -76,6 +85,7 @@ class SourceUpdate(StrictModel):
     content_policy: Literal["metadata_only", "metadata_and_excerpt", "fulltext_allowed"] | None = (
         None
     )
+    parser: Literal["auto", "metadata", "newspaper4k", "news-please"] | None = None
     compliance_notes: str | None = None
     contact_owner: str | None = None
     enabled: bool | None = None

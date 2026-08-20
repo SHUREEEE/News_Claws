@@ -2,6 +2,7 @@ import asyncio
 
 import httpx
 import pytest
+from news_claws.adapters.article_extraction import ArticleExtractionError, ExtractedArticle
 from news_claws.adapters.http_sources import (
     MAX_SOURCE_BYTES,
     fetch_api_entries,
@@ -49,12 +50,64 @@ def test_parse_html_entry_uses_metadata_and_canonical_url() -> None:
       <link rel="canonical" href="/news/policy-update">
     </head></html>"""
 
-    entry = parse_html_entry(payload, "https://agency.example/news?id=4")
+    entry = parse_html_entry(payload, "https://agency.example/news?id=4", parser_name="metadata")
 
     assert entry.title == "Official policy update"
     assert entry.url == "https://agency.example/news/policy-update"
     assert entry.summary == "A short official summary"
     assert entry.published_at is not None
+    assert entry.parse_diagnostics == {"extractor": "metadata", "status": "skipped"}
+
+
+def test_parse_html_entry_uses_extracted_body_and_diagnostics(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "news_claws.adapters.http_sources.extract_article_html",
+        lambda html, url, parser: ExtractedArticle(
+            extractor=parser,
+            title="Extracted title",
+            text="Extracted article body",
+            summary="Extractor summary",
+            authors=("Reporter",),
+            published_at=None,
+            canonical_url="/canonical",
+        ),
+    )
+
+    entry = parse_html_entry(
+        b"<html><head><title>Metadata title</title></head></html>",
+        "https://agency.example/original",
+        parser_name="newspaper4k",
+    )
+
+    assert entry.title == "Extracted title"
+    assert entry.url == "https://agency.example/canonical"
+    assert entry.body_excerpt == "Extracted article body"
+    assert entry.parse_diagnostics == {
+        "extractor": "newspaper4k",
+        "status": "succeeded",
+        "body_characters": 22,
+    }
+
+
+def test_parse_html_entry_preserves_metadata_when_extraction_fails(monkeypatch) -> None:
+    def fail_extraction(html: str, url: str, parser: str) -> None:
+        raise ArticleExtractionError("parser failed safely")
+
+    monkeypatch.setattr(
+        "news_claws.adapters.http_sources.extract_article_html",
+        fail_extraction,
+    )
+    entry = parse_html_entry(
+        b"<html><head><title>Preserved title</title></head></html>",
+        "https://agency.example/preserved",
+        parser_name="newspaper4k",
+    )
+
+    assert entry.title == "Preserved title"
+    assert entry.url == "https://agency.example/preserved"
+    assert entry.body_excerpt == ""
+    assert entry.parse_diagnostics["status"] == "failed"
+    assert entry.parse_diagnostics["error"] == "parser failed safely"
 
 
 def test_parse_sitemap_urls_rejects_dtd_and_invalid_roots() -> None:
@@ -130,9 +183,11 @@ def test_fetch_sitemap_discovers_and_parses_news_pages(monkeypatch) -> None:
             "https://agency.example/sitemap.xml",
             limit=3,
             user_agent="NewsClaws test",
+            parser_name="metadata",
             transport=httpx.MockTransport(responder),
         )
         assert status == 200
         assert [entry.title for entry in entries] == ["News one"]
+        assert entries[0].parse_diagnostics["extractor"] == "metadata"
 
     asyncio.run(scenario())
