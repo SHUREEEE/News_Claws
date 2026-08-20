@@ -1,8 +1,9 @@
 # News Claws Release Acceptance Matrix
 
-Candidate date: 2026-08-20
+Candidate date: 2026-08-21
 Baselines: NC-PRD-001 V1.0 and the matching development design V1.0
 Document state: both baselines are review drafts; product, technical, data/AI, and compliance approvers remain unassigned.
+Repository state: public `master` is merged at `54be2efd594e4592caa3eb40f7eb5d4192ca2161`; production execution has not been dispatched.
 
 ## Status Contract
 
@@ -26,6 +27,7 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | E-NOTIFY | `tests/integration/test_notifications.py` | email queue, semantic deduplication and retry behavior |
 | E-OPS | `tests/integration/test_backup_restore.py`, `tests/integration/test_migrations.py`, `tests/contracts/test_deployment_artifacts.py` | backup/restore, schema migration and deployment contracts |
 | E-SEC | `tests/unit/test_security.py`, `tests/unit/test_production_env.py`, `tests/unit/test_public_smoke.py` | SSRF, production configuration and public smoke controls |
+| E-DEPLOY | `tests/contracts/test_production_deployment.py`, `.github/workflows/deploy-production.yml`, PR #5 and final `master` CI | protected manual deployment, pinned SSH host, OCI digest verification, pre-deploy backup, public smoke and gated rollback |
 | E-RUN | `evidence/dev-local/run-log.md` and release-specific evidence directory | command results, browser evidence and sealed hashes |
 
 ## Product Goals
@@ -36,7 +38,7 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | G-02 | Aggregate duplicate reports into events with manual correction | PASS | E-CLUSTER, E-PIPE and E-API cover deduplication, source chains, merge/split and lock behavior. |
 | G-03 | Produce reviewable verification conclusions | PARTIAL | E-VERIFY and E-PIPE prove traceable rule-based conclusions. External evidence search and the human-reviewed verification benchmark are not complete. |
 | G-04 | Produce industry and company impact summaries | PARTIAL | E-PIPE and E-FILTER prove the contract and deterministic output. Top-3/Top-5 precision on 200 human-reviewed events is GATED. |
-| G-05 | Support browsing, filtering, notification, feedback and correction | PARTIAL | E-API and E-NOTIFY cover the local workflow. Live SMTP delivery and continuous trial operation are GATED. |
+| G-05 | Support browsing, filtering, notification, feedback and correction | PARTIAL | E-API and E-NOTIFY cover the local workflow; E-DEPLOY covers the protected release path. Live SMTP delivery and continuous trial operation are GATED. |
 
 ## P0 Functional Requirements
 
@@ -78,14 +80,14 @@ Task-level PASS does not authorize merge, deployment, or production release. The
 | NFR-PERF-001 | GATED | No verified 50k-article/10k-event P95 run; current functional tests do not substitute for the performance gate. |
 | NFR-REL-001 | GATED | Local retries and job states exist, but >=99.0% monthly availability needs a live trial. |
 | NFR-IDEM-001 | PASS | Article, task and notification idempotency are covered by E-PIPE/E-NOTIFY. |
-| NFR-SEC-001 | PASS | Production secret validation and redaction boundaries are covered by E-SEC; real secrets remain external. |
+| NFR-SEC-001 | PASS | Production secret validation and redaction boundaries are covered by E-SEC; E-DEPLOY uses a protected environment, pinned host key and temporary registry credentials. Real secrets remain external. |
 | NFR-AUTH-001 | PASS | Bearer admin token protects management, analysis and feedback APIs; E-API. |
 | NFR-COMP-001 | PARTIAL | Source policy fields and safe HTTP controls exist; robots/terms/copyright decisions for the final catalogue require compliance review. |
 | NFR-LIC-001 | PARTIAL | Service boundaries and license notes are documented; commercial distribution requires a fresh dependency/legal review. |
 | NFR-OBS-001 | PARTIAL | Source runs, audit logs, jobs and health are visible; production metrics/export and external alerting are not deployed. |
 | NFR-I18N-001 | PASS | UTC-aware data and Chinese/English source/article handling are covered by models and E-PIPE. |
 | NFR-A11Y-001 | PARTIAL | Semantic labels, focus styles and non-color status text exist; final keyboard/screen-reader review is required. |
-| NFR-BACKUP-001 | PARTIAL | Consistent SQLite backup/restore is covered by E-OPS; daily scheduling and a timed production RTO drill are GATED. |
+| NFR-BACKUP-001 | PARTIAL | Consistent SQLite backup/restore is covered by E-OPS and deployment fails closed unless an online pre-replacement backup succeeds; daily off-host scheduling and a timed production RTO drill are GATED. |
 | NFR-COST-001 | PARTIAL | Daily budget configuration and deterministic zero-provider mode exist; per-event external provider accounting/automatic degradation is not proven. |
 
 ## UAT Scenarios
@@ -112,5 +114,5 @@ The repository can be treated as a local development candidate after the full ve
 3. The official source and exchange/company catalogues are reviewed, including a real SEC contact address and per-source compliance policy.
 4. The fixed >=200-event human benchmark meets clustering and Top-N precision thresholds.
 5. The 50k-article performance gate, two-week trial, accessibility review and production recovery drill pass.
-6. A production host, domain, DNS/TLS, container runtime, secrets, SMTP settings and monitoring destination are supplied.
-7. A release owner separately authorizes merge, deployment and public release after evidence sealing.
+6. The protected GitHub `production` environment is present and limited to `master`, but a production host, domain, DNS/TLS, container runtime, environment values, secrets, SMTP settings and monitoring destination must still be supplied.
+7. Merge authorization was exercised for PR #5. A release owner must separately approve the environment deployment after all remaining evidence is sealed; no production workflow run has been triggered.

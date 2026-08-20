@@ -37,14 +37,15 @@ Single working tree and single active implementation session are used for this l
 ## Verification Summary
 
 - Static quality: Ruff format and lint pass after the clustering and release-artifact repairs; Python and JavaScript syntax checks pass.
-- Automated verification: 90 tests pass with warnings treated as errors; domain branch coverage is 89.06% against the 85% gate.
+- Automated verification: 103 tests pass with warnings treated as errors; domain branch coverage is 89.06% against the 85% gate.
 - Runtime verification: Alembic reached `c31e8f2407ad (head)`; production-mode local health, authentication, subscriptions, disabled notification dispatch and audit logging passed against an isolated SQLite database.
 - Live-source verification: a fresh controlled replay eventually passed all 52 enabled non-demo sources and ingested 260 current articles; two transient failures passed on one bounded retry.
 - Clustering verification: the repaired replay produced 254 events and 5 multi-article events. Every multi-article event had an identical title across independent configured sources; known unrelated official-news and dated-alert cases remained separate. SQLite integrity passed.
 - Browser verification: `/subscriptions` and the expanded event dashboard passed desktop/mobile checks. Industry filtering and event lock/unlock completed through the real UI; the 390x844 dashboard has no horizontal overflow or overlapping interactive controls.
 - Release-quality verification: demo and unknown events are rejected. `docs/RELEASE_ACCEPTANCE_MATRIX.md` maps all 5 goals, 28 P0 requirements, 12 NFRs and 10 UAT scenarios to evidence or an explicit gate. The production gate remains closed because the baselines are review drafts and no real 200-event human benchmark exists.
-- Release-artifact verification: production services receive only their required secrets, images use immutable Git SHA tags, container data/backup mountpoints are non-root writable, and a read-only public HTTPS smoke command covers gateway and application authentication.
+- Release-artifact verification: production services receive only their required secrets, images use immutable Git SHA tags and verified OCI digests, container data/backup mountpoints are non-root writable, and a read-only public HTTPS smoke command covers gateway and application authentication.
+- GitHub integration: PR #5 merged the protected production deployment workflow at `54be2efd594e4592caa3eb40f7eb5d4192ca2161`; branch-push, pull-request and final `master` CI all passed. The empty `production` environment requires reviewer `SHUREEEE` and accepts deployments only from `master`.
 
 ## Release Gate
 
-The local implementation is a completion candidate. The 260-article replay is engineering evidence, not a human-reviewed benchmark. WP-8 remains blocked by missing Git remote, Linux/Docker target, domain/DNS, production secrets, real contact email, SMTP configuration, reviewed official exchange files and a real 200-event benchmark. These inputs must not be fabricated.
+The implementation is merged to the public GitHub `master` branch and the protected deployment path is ready. The 260-article replay is engineering evidence, not a human-reviewed benchmark. WP-8 remains blocked by the absence of a real Linux/Docker target, domain and DNS/TLS control, production environment values and credentials, a monitored contact email, SMTP configuration when notifications are enabled, reviewed official exchange files, the 50k performance run, the two-week trial, the recovery/accessibility reviews, required approver sign-off and a real 200-event benchmark. These inputs and approvals must not be fabricated.
